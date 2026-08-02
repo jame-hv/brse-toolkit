@@ -3,6 +3,12 @@ name: code-to-business
 description: Trích nghiệp vụ từ source code không có tài liệu, mỗi câu mô tả trỏ về file:line chính xác qua extract-refs.py.
 ---
 
+## Trước khi chạy
+
+Check `documents/`, `templates/`, `memory/` trong thư mục dự án hiện tại có tồn tại chưa:
+- Chỉ thiếu 1 thư mục phụ (`documents/` hoặc `templates/`), `memory/` vẫn có → tự tạo thư mục trống, dùng mặc định cho lần này, báo 1 dòng rõ ràng. Không cần hỏi.
+- Thiếu `memory/` → **không được** âm thầm chạy tiếp. Dừng lại, hỏi: "Dự án chưa init (thiếu `memory/`) — chạy `/brse-toolkit:init` trước để lưu được cho lần sau, hay tiếp tục 1 lần không lưu gì?"
+
 ## Trigger
 
 Cần hiểu nghiệp vụ từ source code, không đọc "toàn bộ codebase" — bắt buộc có phạm vi cụ thể
@@ -11,7 +17,8 @@ tự chọn đại.
 
 ## Chiến lược đọc codebase lớn (spec mục 6.10)
 
-1. `python3 scripts/extract-refs.py <path> <keyword1> <keyword2> ...` với keyword nghiệp vụ
+1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path>
+   <keyword1> <keyword2> ...` với keyword nghiệp vụ
    trong phạm vi đã xác định → danh sách file:line, không đổ nguyên file vào context.
 2. Từ danh sách match, chỉ đọc (Read tool, đúng đoạn dòng liên quan) file/hàm thực sự nằm
    trong luồng — không đọc hết mọi file có match.

@@ -18,8 +18,16 @@ def split_sentences(text: str) -> list[str]:
 
 
 def lint_hedge_words(text: str) -> list[dict]:
+    """Flag hedge words in conclusions only.
+
+    Questions are exempt (spec mục 6.1: "không cấm khi đang hỏi lại khách") —
+    a hedge word inside a question to the customer is the correct phrasing,
+    not a violation.
+    """
     violations = []
     for sentence in split_sentences(text):
+        if "?" in sentence:
+            continue
         lower = sentence.lower()
         for word in HEDGE_WORDS:
             if word in lower:

@@ -5,7 +5,19 @@ tạo report/slide/DD, quản lý Q&A — với bộ nhớ bền theo từng d�
 
 ## Cài đặt
 
-    claude plugin install ./brse-toolkit
+`claude plugin install` chỉ resolve tên plugin từ các marketplace đã đăng ký, không nhận
+đường dẫn tùy ý — nên cài local là 2 bước: đăng ký thư mục này làm marketplace (nó có sẵn
+`.claude-plugin/marketplace.json`), rồi install plugin từ marketplace đó.
+
+    claude plugin marketplace add ./brse-toolkit
+    claude plugin install brse-toolkit@brse-toolkit
+
+(`brse-toolkit@brse-toolkit` = `<tên plugin>@<tên marketplace>` — trùng tên vì marketplace
+này chỉ chứa đúng 1 plugin.)
+
+Cập nhật sau khi sửa code plugin:
+
+    claude plugin marketplace update brse-toolkit
 
 ## Bắt đầu 1 dự án mới
 

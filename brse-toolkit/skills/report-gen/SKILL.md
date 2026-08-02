@@ -3,6 +3,12 @@ name: report-gen
 description: Xuất Excel/Slide/Word đúng template khách. Ví dụ luồng cụ thể cho slide ở dưới.
 ---
 
+## Trước khi chạy
+
+Check `documents/`, `templates/`, `memory/` trong thư mục dự án hiện tại có tồn tại chưa:
+- Chỉ thiếu 1 thư mục phụ (`documents/` hoặc `templates/`), `memory/` vẫn có → tự tạo thư mục trống, dùng mặc định cho lần này, báo 1 dòng rõ ràng. Không cần hỏi.
+- Thiếu `memory/` → **không được** âm thầm chạy tiếp. Dừng lại, hỏi: "Dự án chưa init (thiếu `memory/`) — chạy `/brse-toolkit:init` trước để lưu được cho lần sau, hay tiếp tục 1 lần không lưu gì?"
+
 ## Nguồn template
 
 Check `templates/` (thư mục dự án, KHÔNG phải template mặc định đóng gói trong

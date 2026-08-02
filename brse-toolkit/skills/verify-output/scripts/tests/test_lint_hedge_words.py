@@ -35,3 +35,10 @@ def test_detects_missing_source_on_bullet_claim():
 def test_question_bullets_are_not_flagged_for_missing_source():
     out, code = run("- Trường email có bắt buộc không?")
     assert code == 0
+
+
+def test_hedge_word_inside_a_question_is_not_flagged():
+    """spec mục 6.1: hedge words are only banned in conclusions, not when asking."""
+    out, code = run("- Trường email có thể bắt buộc không?")
+    assert code == 0
+    assert out["violations"] == []

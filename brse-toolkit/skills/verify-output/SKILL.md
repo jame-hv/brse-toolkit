@@ -14,7 +14,7 @@ description: Bắt buộc trước khi trả lời bất kỳ kết luận nào 
 
 Trước khi gửi câu trả lời cuối, chạy:
 
-    python3 scripts/lint-hedge-words.py <draft.txt>
+    python3 ${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py <draft.txt>
 
 Đọc JSON trả về. Nếu `ok: false`, sửa draft cho tới khi sạch violation rồi mới trả lời —
 không bỏ qua kết quả script.

@@ -22,3 +22,7 @@ Không đưa quá 3 phương án — quá nhiều lựa chọn không giúp quy�
 
 Danh sách phương án + khuyến nghị. Nếu phương án nào cần thêm research trước khi chốt được
 → chain sang `research-jp-tech`.
+
+Trước khi trả lời, áp `verify-output` — chạy
+`${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` trên draft response
+(trade-off phải có nguồn, không viết phỏng đoán như fact).
