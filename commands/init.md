@@ -3,13 +3,13 @@ name: init
 description: Scaffold documents/, templates/, memory/, CLAUDE.md for a new BrSE project in the current directory
 ---
 
-Chạy các bước sau trong thư mục hiện tại (thư mục dự án của user, KHÔNG phải repo plugin):
+Run the following steps in the current directory (the user's project directory, NOT the plugin repo):
 
-1. Nếu đã tồn tại `memory/` — dừng lại, hỏi user có muốn ghi đè hay không, không tự ý chạy tiếp.
-2. Tạo các thư mục: `documents/`, `templates/`, `memory/`.
-3. Tạo `templates/README.md` với nội dung:
+1. If `memory/` already exists — stop, ask the user whether to overwrite, do not continue on your own.
+2. Create the directories: `documents/`, `templates/`, `memory/`.
+3. Create `templates/README.md` with this content:
    "Bỏ vào đây mẫu report/slide/DD riêng của khách (font, màu, cấu trúc cột). Skill report-gen/detail-design-jp sẽ đọc file trong thư mục này nếu có, dùng mặc định nếu chưa có."
-4. Tạo 4 file trong `memory/`, mỗi file chỉ có 1 dòng tiêu đề + hướng dẫn schema (rỗng, chưa có dữ liệu thật):
+4. Create 4 files in `memory/`, each with only a title line + schema guidance (empty, no real data yet). Content stays in Vietnamese — these are working files for the project itself, not plugin documentation:
 
    `memory/parties.md`:
    ```
@@ -45,7 +45,7 @@ Chạy các bước sau trong thư mục hiện tại (thư mục dự án của
      Trạng thái trong doc chính thức: <ĐÃ update đầy đủ / CHỈ update 1 phần / CHƯA update>
    ```
 
-5. Tạo `CLAUDE.md` ở root thư mục (nếu chưa có — nếu đã có, append thay vì ghi đè):
+5. Create `CLAUDE.md` at the project root (if it doesn't exist yet — if it does, append instead of overwriting):
 
    ```markdown
    ## brse-toolkit memory
@@ -59,7 +59,9 @@ Chạy các bước sau trong thư mục hiện tại (thư mục dự án của
    file thì không.
    ```
 
-6. Kiểm tra thư mục hiện tại đã là git repo chưa (`git rev-parse --is-inside-work-tree`).
-   Nếu chưa, chạy `git init` — cơ chế chống-stale của `cross-check` cần git history để
-   lấy lại version cũ khi so sánh tài liệu.
-7. Báo cho user: đã tạo xong, liệt kê các file/thư mục vừa tạo.
+   (This injected block also stays in Vietnamese: it configures the project's own `CLAUDE.md`, addressed to whoever works in that project, not to the plugin's documentation.)
+
+6. Check whether the current directory is already a git repo (`git rev-parse --is-inside-work-tree`).
+   If not, run `git init` — the anti-staleness mechanism in `cross-check` needs git
+   history to retrieve prior versions when comparing documents.
+7. Report back to the user: done, list the files/directories just created.

@@ -1,7 +1,0 @@
-{
-  "name": "brse-toolkit",
-  "version": "0.1.0",
-  "description": "Bo cong cu BrSE: dich JP-VI, doi chieu spec/code/excel, verify output, report gen, quan ly memory theo du an",
-  "author": { "name": "TODO: dien ten that" },
-  "keywords": ["brse", "japanese", "translation", "spec-analysis"]
-}
