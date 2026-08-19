@@ -1,6 +1,6 @@
 ---
 name: proposal-gen
-description: Requirements → proposal. The internal technical version and the client-facing version are two separately authored drafts, not one draft mechanically trimmed down.
+description: Use this when the user has requirements (spec, client emails, meeting notes) that need to be turned into a proposal. Produces two separately authored drafts — internal technical version and client-facing version — not one draft mechanically trimmed down.
 ---
 
 ## Before running

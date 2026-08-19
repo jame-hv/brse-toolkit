@@ -1,6 +1,6 @@
 ---
 name: excel-analyze
-description: Read/cross-check Excel — cell value+format via extract-cells.py, embedded images via extract-images.py, shape/annotation fallback rendering via render-sheet.py + image-analyze.
+description: Use this when the user needs an Excel file read or checked — cell values/formatting, embedded images, or shapes/annotations that need visual rendering to interpret.
 ---
 
 ## Before running

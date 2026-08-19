@@ -1,6 +1,6 @@
 ---
 name: cross-check
-description: Cross-check 2 sources (old/new spec, code/spec, Excel/Excel). Detect stale memory/ entries when source documents get updated. Reconcile decisions-log.md against the DD when the DD is updated.
+description: Use this when the user wants two sources compared against each other (old vs new spec, code vs spec, Excel vs Excel), wants to know if memory/ entries went stale after a source document changed, or wants decisions-log.md reconciled against an updated DD.
 ---
 
 ## Before running

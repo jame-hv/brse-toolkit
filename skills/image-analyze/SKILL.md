@@ -1,6 +1,6 @@
 ---
 name: image-analyze
-description: Read screenshots/hand-drawn diagrams/error images — OCR first for printed/UI text, vision only handles layout/arrows/handwriting.
+description: Use this when the user shares a screenshot, hand-drawn diagram, or error image to interpret — OCR handles printed/UI text first, vision only covers what OCR can't (layout, arrows, handwriting).
 ---
 
 ## Mechanism (spec section 6.4)

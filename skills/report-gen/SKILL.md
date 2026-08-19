@@ -1,6 +1,6 @@
 ---
 name: report-gen
-description: Export Excel/Slide/Word matching the client's template. A concrete example flow for slides is below.
+description: Use this when the user needs to export a report as Excel, Slide, or Word matching the client's template.
 ---
 
 ## Before running

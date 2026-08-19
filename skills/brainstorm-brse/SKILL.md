@@ -1,6 +1,6 @@
 ---
 name: brainstorm-brse
-description: Propose solutions/business options for a specific problem — not code brainstorming, structured, no rambling.
+description: Use this when the user needs solution/business options for a specific problem (e.g. "what are our options for X", "how should we handle Y with the client") — proposes 2-3 structured options with trade-offs, not open-ended code brainstorming.
 ---
 
 ## Trigger

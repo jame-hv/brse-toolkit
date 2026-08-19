@@ -8,41 +8,41 @@ Run the following steps in the current directory (the user's project directory, 
 1. If `memory/` already exists — stop, ask the user whether to overwrite, do not continue on your own.
 2. Create the directories: `documents/`, `templates/`, `memory/`.
 3. Create `templates/README.md` with this content:
-   "Bỏ vào đây mẫu report/slide/DD riêng của khách (font, màu, cấu trúc cột). Skill report-gen/detail-design-jp sẽ đọc file trong thư mục này nếu có, dùng mặc định nếu chưa có."
-4. Create 4 files in `memory/`, each with only a title line + schema guidance (empty, no real data yet). Content stays in Vietnamese — these are working files for the project itself, not plugin documentation:
+   "Put the client's own report/slide/DD templates here (font, colors, column structure). The report-gen/detail-design-jp skills read files from this directory when present, and fall back to defaults otherwise."
+4. Create 4 files in `memory/`, each with only a title line + schema guidance (empty, no real data yet). Written in English so the scaffolding is readable by any team; actual entries (translations, decisions, etc.) get filled in whatever language the project's deliverables use:
 
    `memory/parties.md`:
    ```
-   # Parties — ai là ai trong dự án này
+   # Parties — who is who in this project
 
-   Schema mỗi entry:
-   - <Tên bên> — vai trò: <khách/vendor/team mình/...> — xưng hô mặc định: <chưa xác nhận, dùng "chúng tôi"/"quý vị" cho tới khi có>
+   Entry schema:
+   - <Party name> — role: <client/vendor/our team/...> — default form of address: <not yet confirmed — use neutral pronouns (e.g. formal "we"/"you") until confirmed>
    ```
 
    `memory/glossary.md`:
    ```
    # Glossary JP-VI
 
-   Schema mỗi entry:
-   - <term JP> → "<translation VI>" — nguồn: <file>, <version/ngày>, xác nhận <ngày>
+   Entry schema:
+   - <term JP> → "<translation VI>" — source: <file>, <version/date>, confirmed <date>
    ```
 
    `memory/conventions.md`:
    ```
-   # Conventions — quy ước format phát sinh
+   # Conventions — ad-hoc formatting conventions
 
-   Schema mỗi entry:
-   - <mô tả định dạng, vd "chữ đỏ trong Excel sheet X"> → <ý nghĩa đã xác nhận> — nguồn: <file>, xác nhận <ngày>
+   Entry schema:
+   - <format description, e.g. "red text in Excel sheet X"> → <confirmed meaning> — source: <file>, confirmed <date>
    ```
 
    `memory/decisions-log.md`:
    ```
-   # Decisions log — lớp phủ lên DD/spec chính thức
+   # Decisions log — overlay on top of the official DD/spec
 
-   Schema mỗi entry:
-   - Quyết định: <nội dung, ghi rõ phạm vi áp dụng>
-     Nguồn: QA #<id>, ngày <date>
-     Trạng thái trong doc chính thức: <ĐÃ update đầy đủ / CHỈ update 1 phần / CHƯA update>
+   Entry schema:
+   - Decision: <content, state the scope of applicability clearly>
+     Source: QA #<id>, date <date>
+     Status in the official doc: <FULLY updated / PARTIALLY updated / NOT YET updated>
    ```
 
 5. Create `CLAUDE.md` at the project root (if it doesn't exist yet — if it does, append instead of overwriting):
@@ -50,16 +50,34 @@ Run the following steps in the current directory (the user's project directory, 
    ```markdown
    ## brse-toolkit memory
 
-   Trước khi chạy bất kỳ skill nào của brse-toolkit, đọc `memory/parties.md`,
+   Before running any brse-toolkit skill, read `memory/parties.md`,
    `memory/glossary.md`, `memory/conventions.md`, `memory/decisions-log.md`.
 
-   Khi phát hiện thông tin mới (thuật ngữ, quy ước, quan hệ giữa các bên, quyết định QA) —
-   xác nhận 1 câu ngắn với user, rồi **ghi vào file tương ứng ngay lập tức**, trước khi làm
-   việc khác. Không gộp nhiều xác nhận lại ghi 1 lần cuối session — hội thoại có thể bị nén,
-   file thì không.
+   When new information surfaces (a term, a convention, a relationship between parties,
+   a QA decision) — confirm it with the user in one short sentence, then **write it to
+   the corresponding file immediately**, before moving on to other work. Don't batch
+   confirmations and write them all at the end of the session — the conversation can get
+   compacted, the file can't.
+
+   ## brse-toolkit — how to behave toward the end user
+
+   This plugin's users are BrSEs, not developers — they can't read raw tool
+   calls/output.
+
+   - Received a passage/file with no clear instruction on what to do with it (e.g. a
+     pasted Japanese passage with no accompanying instruction) — **stop and ask first**,
+     don't guess: "Translate, cross-check, or something else?". If it's a translation,
+     also ask for the target language (default JP→VI, but confirm if unclear). Only
+     pick a skill on your own once the intent is clearly stated.
+   - Before running a skill, subagent, or script — say one short plain-language sentence
+     describing what you're about to do (e.g. "Using the jp-vi-translate skill to
+     translate this passage", "Splitting 3 emails into 3 parallel subagents"). Don't
+     dump the raw tool call/command in front of the user.
    ```
 
-   (This injected block also stays in Vietnamese: it configures the project's own `CLAUDE.md`, addressed to whoever works in that project, not to the plugin's documentation.)
+   (This injected block configures the project's own `CLAUDE.md`, addressed to whoever
+   works in that project — keep it in English for the same reason as the memory files
+   above, regardless of what language the project's deliverables end up in.)
 
 6. Check whether the current directory is already a git repo (`git rev-parse --is-inside-work-tree`).
    If not, run `git init` — the anti-staleness mechanism in `cross-check` needs git

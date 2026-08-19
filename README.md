@@ -6,18 +6,23 @@ memory per project.
 
 ## Install
 
-`claude plugin install` only resolves plugin names from registered marketplaces,
-it doesn't accept arbitrary paths — so a local install is 2 steps: register this
-repo as a marketplace (it already has `.claude-plugin/marketplace.json` at its
-root), then install the plugin from that marketplace.
+This repo is published on GitHub at `jame-hv/brse-toolkit`. `claude plugin
+install` only resolves plugin names from registered marketplaces, so install
+is 2 steps: register this repo as a marketplace, then install the plugin from
+it. From inside a Claude Code session:
 
-    claude plugin marketplace add ./
+    /plugin marketplace add jame-hv/brse-toolkit
+    /plugin install brse-toolkit@brse-toolkit
+
+or from the shell:
+
+    claude plugin marketplace add jame-hv/brse-toolkit
     claude plugin install brse-toolkit@brse-toolkit
 
 (`brse-toolkit@brse-toolkit` = `<plugin-name>@<marketplace-name>` — same name
 twice because this marketplace only holds this one plugin.)
 
-Update after changing plugin code:
+Update after pulling new commits:
 
     claude plugin marketplace update brse-toolkit
 

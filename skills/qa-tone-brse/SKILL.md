@@ -1,6 +1,6 @@
 ---
 name: qa-tone-brse
-description: Answer Q&A for clients/devs via chat/ticket tools or an Excel Q&A list, in the right tone for each channel. Also manages the QA log directly inside the Excel file sent to the client.
+description: Use this when the user needs to answer a question from a client or dev — via a chat/ticket tool (Backlog, Redmine, Chatwork...) or an Excel Q&A list — in the right tone for that channel. Also manages the QA log directly inside the Excel file sent to the client.
 ---
 
 ## Before running

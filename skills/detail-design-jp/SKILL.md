@@ -1,6 +1,6 @@
 ---
 name: detail-design-jp
-description: Detail design following the standard Japanese SI framework, or the client's own template if one exists. Content comes from code-to-business + decisions-log, never invented.
+description: Use this when the user needs a Detail Design document written, following the standard Japanese SI framework or the client's own template. Content is pulled from code-to-business output + decisions-log.md, never invented from scratch.
 ---
 
 ## Before running

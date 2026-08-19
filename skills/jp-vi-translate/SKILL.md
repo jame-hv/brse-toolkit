@@ -1,6 +1,6 @@
 ---
 name: jp-vi-translate
-description: JP-VI translation. Fixed fields/terminology use the glossary script; prose/email/QA are translated by meaning + relay model, NOT the pass-1-literal/pass-2-naturalize model.
+description: Use this when the user asks to translate text between Japanese and Vietnamese — emails, spec passages, chat/QA messages, or fixed terminology/glossary fields.
 ---
 
 ## Before running

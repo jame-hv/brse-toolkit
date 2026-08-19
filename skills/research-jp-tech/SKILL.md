@@ -1,6 +1,6 @@
 ---
 name: research-jp-tech
-description: Research technology/regulations/best practices, prioritizing Japanese-language and authoritative sources.
+description: Use this when the user needs to research a technology, regulation, or best practice, prioritizing Japanese-language and authoritative sources over generic English results.
 ---
 
 ## Before running

@@ -1,6 +1,6 @@
 ---
 name: code-to-business
-description: Extract business logic from undocumented source code, every description sentence points back to an exact file:line via extract-refs.py.
+description: Use this when the user needs business logic explained or documented from existing, undocumented source code for one concrete feature/flow — never "the whole codebase". Every output sentence cites an exact file:line via extract-refs.py.
 ---
 
 ## Before running
@@ -17,6 +17,12 @@ order flow"). Scope unclear → ask, don't pick one arbitrarily.
 
 ## Strategy for large codebases (spec section 6.10)
 
+0. If the project has already run `/inspect` (the `code-inspector`/`brse-cowork`
+   plugin) and a knowledge graph JSON exists — read that first to get module
+   boundaries and call relationships instead of re-deriving structure from
+   scratch. It's a different plugin (Tree-sitter-based, not part of
+   brse-toolkit), so skip this step if it wasn't run; don't tell the user to
+   run it just for this.
 1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path>
    <keyword1> <keyword2> ...` with business keywords within the defined scope →
    a list of file:line matches, don't dump whole files into context.
