@@ -7,7 +7,22 @@ import json
 import sys
 
 
+def _duplicate_keys(items: list[dict]) -> list[str]:
+    seen = set()
+    dupes = []
+    for item in items:
+        k = item["key"]
+        if k in seen and k not in dupes:
+            dupes.append(k)
+        seen.add(k)
+    return dupes
+
+
 def diff(old: list[dict], new: list[dict]) -> dict:
+    # dict-comprehension key collision silently keeps only the last
+    # occurrence — that's fine as a diff *result* (a key can only map to one
+    # current value), but silently losing which rows collided would hide a
+    # real data problem in the source sheet, so it's surfaced separately.
     old_map = {item["key"]: item["value"] for item in old}
     new_map = {item["key"]: item["value"] for item in new}
 
@@ -18,7 +33,20 @@ def diff(old: list[dict], new: list[dict]) -> dict:
         for k in old_map.keys() & new_map.keys()
         if old_map[k] != new_map[k]
     ]
-    return {"added": added, "removed": removed, "changed": changed}
+    result = {"added": added, "removed": removed, "changed": changed}
+    duplicate_keys_old = _duplicate_keys(old)
+    duplicate_keys_new = _duplicate_keys(new)
+    if duplicate_keys_old or duplicate_keys_new:
+        result["warning"] = (
+            "duplicate key(s) found in source data — only the last occurrence "
+            "of each was compared, earlier ones were silently dropped from "
+            "this diff"
+        )
+        if duplicate_keys_old:
+            result["duplicate_keys_old"] = duplicate_keys_old
+        if duplicate_keys_new:
+            result["duplicate_keys_new"] = duplicate_keys_new
+    return result
 
 
 def main() -> None:

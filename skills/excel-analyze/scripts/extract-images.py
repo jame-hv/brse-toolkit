@@ -23,7 +23,8 @@ def extract(path: str, out_dir: str) -> list[dict]:
             to_marker = getattr(anchor, "to", None)
             from_cell = f"col{from_marker.col},row{from_marker.row}" if from_marker else "unknown"
             to_cell = f"col{to_marker.col},row{to_marker.row}" if to_marker else "unknown"
-            filename = f"{ws.title}_{i}.png"
+            ext = (getattr(img, "format", None) or "png").lower()
+            filename = f"{ws.title}_{i}.{ext}"
             out_path = os.path.join(out_dir, filename)
             with open(out_path, "wb") as f:
                 f.write(img._data())

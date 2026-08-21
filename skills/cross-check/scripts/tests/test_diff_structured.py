@@ -40,3 +40,23 @@ def test_detects_removed_field(tmp_path):
     new = []
     out, code = run(old, new, tmp_path)
     assert out["removed"] == [{"key": "P45.登録", "value": "Lưu"}]
+
+
+def test_no_duplicate_keys_no_warning(tmp_path):
+    old = [{"key": "受注No", "value": "要"}]
+    new = [{"key": "受注No", "value": "不要"}]
+    out, _ = run(old, new, tmp_path)
+    assert "warning" not in out
+
+
+def test_duplicate_key_in_source_is_flagged_not_silently_dropped(tmp_path):
+    """Regression: a repeated key in the source sheet (e.g. a merged-header
+    artifact, or two rows with the same item name) used to silently collapse
+    to whichever occurrence the dict comprehension kept last, with no signal
+    that a row had been dropped from the comparison."""
+    old = [{"key": "受注No", "value": "要"}, {"key": "受注No", "value": "不要"}]
+    new = [{"key": "受注No", "value": "不要"}]
+    out, _ = run(old, new, tmp_path)
+    assert "warning" in out
+    assert out["duplicate_keys_old"] == ["受注No"]
+    assert "duplicate_keys_new" not in out

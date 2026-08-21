@@ -10,10 +10,22 @@ import sys
 
 HEDGE_WORDS = ["có lẽ", "chắc là", "hình như", "có thể"]
 SOURCE_TAG_RE = re.compile(r"\(nguồn:[^)]*\)")
+QUESTION_MARKS = ("?", "？")  # deliverables in this toolkit are sometimes
+# Japanese (detail-design-jp output, jp-vi-translate's JP-target translations)
+# — the full-width "？" is the real question mark there, half-width "?" alone
+# would miss every JP question and misflag it as an unsourced claim.
+
+
+def is_question(text: str) -> bool:
+    return any(mark in text for mark in QUESTION_MARKS)
 
 
 def split_sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    # Half-width .!? only split when followed by whitespace (avoids cutting
+    # "8.5" mid-number); full-width 。！？ split immediately after — Japanese
+    # prose has no space between sentences, so requiring one would leave
+    # multiple JP sentences glued into a single "sentence" and never checked.
+    parts = re.split(r"(?<=[.!?])\s+|(?<=[。！？])", text.strip())
     return [p for p in parts if p.strip()]
 
 
@@ -26,7 +38,7 @@ def lint_hedge_words(text: str) -> list[dict]:
     """
     violations = []
     for sentence in split_sentences(text):
-        if "?" in sentence:
+        if is_question(sentence):
             continue
         lower = sentence.lower()
         for word in HEDGE_WORDS:
@@ -35,13 +47,39 @@ def lint_hedge_words(text: str) -> list[dict]:
     return violations
 
 
+BULLET_RE = re.compile(r"^([-*]\s|\d+[.)]\s)")
+STRUCTURAL_RE = re.compile(r"^([#|]|[-=*_ ]+$)")
+
+
 def lint_missing_sources(text: str) -> list[dict]:
+    """Flag concluding claims with no `(nguồn: ...)` tag.
+
+    Checks bullet/numbered list items as a whole line (original behavior),
+    AND plain paragraph sentences — a claim doesn't stop being a claim just
+    because it wasn't written as a bullet. Excluded: code fences, headers,
+    tables, horizontal rules, questions, and sentence fragments with no
+    terminal punctuation (lead-in lines like "Kết quả:" aren't claims).
+    """
     missing = []
+    in_code_block = False
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("- ") and "?" not in stripped:
-            if not SOURCE_TAG_RE.search(stripped):
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block or not stripped:
+            continue
+        if STRUCTURAL_RE.match(stripped):
+            continue
+        if BULLET_RE.match(stripped):
+            if not is_question(stripped) and not SOURCE_TAG_RE.search(stripped):
                 missing.append({"type": "missing_source", "line": stripped})
+            continue
+        for sentence in split_sentences(stripped):
+            if is_question(sentence) or not sentence.endswith((".", "!", "。", "！")):
+                continue
+            if not SOURCE_TAG_RE.search(sentence):
+                missing.append({"type": "missing_source", "line": sentence})
     return missing
 
 

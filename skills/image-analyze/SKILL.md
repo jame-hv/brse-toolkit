@@ -8,6 +8,13 @@ description: Use this when the user shares a screenshot, hand-drawn diagram, or 
 1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/image-analyze/scripts/ocr-pass.py <image> jpn` —
    printed/UI text, more reliable than letting vision read it itself. If the
    image has English/Vietnamese text, call again with `lang=eng`/`vie`.
+   `tesseract` or the `jpn`/`eng`/`vie` traineddata isn't installed (the
+   README lists `tesseract-ocr` + the `jpn` pack as a required dependency) →
+   tell the user it's missing and how to install it (`tesseract --list-langs`
+   shows what's actually available) — do not improvise a local install
+   workaround (e.g. downloading/extracting packages without root) as a
+   substitute for the real dependency; fall back to vision-only for this run
+   and say plainly that the text reading is unverified by OCR.
 2. Vision only handles what OCR can't: layout, arrow direction, handwriting.
 3. Always attach a clear confidence value (use the `confidence` field from OCR
    when available), and do NOT present it as equally reliable as structured
