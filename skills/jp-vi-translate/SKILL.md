@@ -8,6 +8,7 @@ description: Use this when the user asks to translate text between Japanese and 
 Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
 - Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
 - `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
+- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
 
 ## Before translating any passage
 
@@ -35,9 +36,26 @@ performed worse than plain machine translation)
 3. Apply the relay model: the source's first-person pronoun (私たち) → change
    to the specific party's name when relaying to another party, don't translate
    it verbatim. Relationship between parties not yet confirmed in
-   `memory/parties.md` → default to the neutral Vietnamese pronouns "chúng
-   tôi"/"quý vị" ("we"/"you", formal register), don't pick an informal register
-   (em/anh/chị) on your own.
+   `memory/parties.md`:
+   - VI target → default to the neutral Vietnamese pronouns "chúng
+     tôi"/"quý vị" ("we"/"you", formal register), don't pick an informal
+     register (em/anh/chị) on your own.
+   - JP target → for QA/confirmation text, generic honorific placeholders
+     (お客様, 貴社, 御社, ご担当者様, 各位, or similar) are BANNED — the user
+     rejected them explicitly. There are exactly two allowed choices: (a) the
+     real party name, once confirmed in `memory/parties.md`, or (b) drop the
+     addressee noun entirely (Japanese naturally elides the topic/subject
+     when it's understood from context — e.g. write "ご確認をお願いいたします"
+     rather than "お客様に...いただきたく存じます" or "貴社に..."). If the
+     party isn't confirmed yet, always fall back to (b), never to a
+     placeholder honorific.
+   - Don't stop and ask the user who the recipient/relay chain is just to
+     pick a register — on a draft that hasn't been sent anywhere yet, that
+     question reads as a non-sequitur. Translate with the defaults above; if
+     it's genuinely load-bearing, add one line after the translation noting
+     the register may need adjusting once the recipient is confirmed. Only
+     ask directly when the user says they're about to send the text and a
+     wrong register would actually matter.
 4. Fact-check separately: list the key facts/decisions (not every sentence)
    with their source, placed AFTER the translation — don't interleave it
    inside the prose.

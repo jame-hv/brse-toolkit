@@ -48,3 +48,23 @@ def test_no_images_returns_empty_list(tmp_path):
     out_dir = tmp_path / "out"
     out, code = run(xlsx, out_dir)
     assert out["images"] == []
+
+
+def test_non_png_image_keeps_its_real_extension(tmp_path):
+    """Regression: the output filename used to be hardcoded to .png regardless
+    of the embedded image's actual format, mislabeling e.g. JPEG sources."""
+    xlsx = tmp_path / "fixture_jpeg.xlsx"
+    jpeg = tmp_path / "src.jpg"
+    out_dir = tmp_path / "out"
+    PILImage.new("RGB", (10, 10), color="blue").save(jpeg, format="JPEG")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "ScreenB"
+    img = XLImage(str(jpeg))
+    ws.add_image(img, "B10")
+    wb.save(xlsx)
+    out, code = run(xlsx, out_dir)
+    assert code == 0
+    entry = out["images"][0]
+    assert pathlib.Path(entry["file"]).suffix.lower() in (".jpg", ".jpeg")
+    assert pathlib.Path(entry["file"]).exists()

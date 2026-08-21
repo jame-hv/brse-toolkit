@@ -44,3 +44,12 @@ for the full architecture.
 Also required on the machine: `ripgrep` (rg), `tesseract-ocr` + the `jpn`
 language pack, and `libreoffice` (used as a fallback to render Excel sheets
 that contain shapes/annotations to an image).
+
+## Developing this repo directly (not as an installed plugin)
+
+Every `SKILL.md` references its own scripts as `${CLAUDE_PLUGIN_ROOT}/skills/...`
+— that variable is set automatically by Claude Code once this repo is
+installed as a plugin (see Install above), but it is **not** set when you
+just open this repo's own working directory in Claude Code to work on the
+toolkit itself. In that case, resolve `${CLAUDE_PLUGIN_ROOT}` as this repo's
+root manually — the paths are otherwise identical.

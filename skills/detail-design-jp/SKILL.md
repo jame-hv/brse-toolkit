@@ -8,6 +8,7 @@ description: Use this when the user needs a Detail Design document written, foll
 Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
 - Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
 - `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
+- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
 
 ## Content sources (spec section 6.11)
 
@@ -33,8 +34,21 @@ Two different kinds of template, don't confuse them (spec section 7):
 
 ## Completeness
 
-Every section in the framework must have content or explicitly state "該当なし"
-(not applicable) — a section must NEVER be silently left blank without explanation.
+Every section in the framework must have content or an explicit marker — a
+section must NEVER be silently left blank without explanation. Two different
+situations need two different markers, don't conflate them:
+
+- **"該当なし"** (not applicable) — only when the source itself states the
+  feature/behavior genuinely doesn't exist for this screen (e.g. "no
+  delete/add processing on this screen" stated in the requirement).
+- **"未確認"** (not yet confirmed) + a specific follow-up question — when the
+  section is clearly applicable but the source (code-to-business output /
+  decisions-log.md) simply doesn't say (e.g. DB table/column definitions,
+  required-field flags, or an error-handling behavior never specified).
+  Writing "該当なし" here would be a false claim that the feature doesn't
+  exist; leaving it blank hides that it needs an answer — "未確認" plus a
+  concrete question is what "never invent technical content" actually
+  requires in this case, not a guess and not silence.
 
 ## Output
 

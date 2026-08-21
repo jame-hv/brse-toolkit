@@ -8,6 +8,7 @@ description: Use this when the user wants two sources compared against each othe
 Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
 - Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
 - `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
+- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
 
 ## Getting the old version of a document from git history (spec section 3)
 
@@ -38,7 +39,18 @@ in the output, don't guess what the old version looked like.
 - **Code vs spec**: get the actual logic from `code-to-business`, cross-check it
   against the spec description using the same mechanism above.
 - **Excel vs Excel**: run `${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py`
-  on both files, convert to `{key, value}` using the table's key column, then diff.
+  on both files, convert to `{key, value}` using the table's key column, then
+  diff. There is no script for this conversion step — `extract-cells.py`
+  only ever emits one record per cell (`{"cell": "A2", "value": ...}`), never
+  grouped rows, so the key-column choice and header-row handling are a
+  judgment call made explicitly each time, not inferred: read the sheet's own
+  header row first to identify which column is the item/field name (the key)
+  and which column holds the value being compared, skip the header row(s)
+  themselves as data, and state the two column letters chosen in the output
+  so the comparison is reproducible. A row whose key column repeats (same
+  item name twice in one sheet) → `diff-structured.py` silently keeps only
+  the last occurrence per key — flag duplicate keys in the source sheet
+  before diffing rather than letting them silently disappear.
 
 **Real limitation**: only the parts that can be converted to `{key, value}` can
 be compared. Free-form prose can't be structurally compared — fall back to

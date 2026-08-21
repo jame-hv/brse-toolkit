@@ -8,6 +8,7 @@ description: Use this when the user needs business logic explained or documented
 Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
 - Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
 - `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
+- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
 
 ## Trigger
 
@@ -26,6 +27,12 @@ order flow"). Scope unclear → ask, don't pick one arbitrarily.
 1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path>
    <keyword1> <keyword2> ...` with business keywords within the defined scope →
    a list of file:line matches, don't dump whole files into context.
+   `rg` not installed (the script exits with `{"error": "ripgrep (rg) not
+   installed"}`) → fall back to the `Grep` tool (or `grep -rn`) with the same
+   keywords, one call per keyword, over the same scope — but call out in the
+   output that this fallback path skips `extract-refs.py`'s Shift-JIS (cp932)
+   decode-retry, so a legacy non-UTF-8 file could be silently skipped or
+   error out instead of being matched.
 2. From the match list, only read (Read tool, just the relevant line ranges) the
    files/functions that are actually part of the flow — don't read every file
    that has a match.
