@@ -54,6 +54,34 @@ asks questions instead of copying a fixed template. Existing 1.x workspaces
   layouts.
 - GitHub Actions: pytest on ubuntu / macos / windows.
 
+- **Office tools that use the office CLIs** — `scripts/office.py` (info /
+  render / round-trip check through gridcraft / wordcraft / deckcraft, else
+  LibreOffice / Python, always saying which) and `scripts/office-text.py`
+  (extract every translatable unit incl. headers, footers, text boxes, notes;
+  apply translations to a copy keeping formatting; long documents split into
+  parts; .xlsx written through the CLI after a passing round-trip check).
+- **Measured quality** — `verify-claims.py` (opens the cited cell / line /
+  part and compares), `judge.py` + `config/rubric.md` (six criteria with
+  thresholds, second model or the `reviewer` agent), `lang-lint.py`.
+- **Plugin agents** — `translator` (fixed translation rules, glossary,
+  JSON-in/JSON-out for file units) and `reviewer` (rubric JSON).
+- **Template-based diagrams** — `scripts/drawio-tool.py`: list and copy draw.io's
+  bundled templates (read from its app.asar), edit by id, lint, export (snap
+  sandbox handled); `diagram` skill rewritten around it.
+- **`scope-analysis`** (requirements, gaps, Q&A), **`approach`** (方針 from code
+  and documents), **`/brse-toolkit:estimate-project`** (staged estimate flow).
+- **Document origins** — `paths.internal` and `paths.deliverables` next to
+  `paths.sources`; knowledge chunks tagged client / internal / delivered;
+  `kb-search.py --origin`; `deliverables-log.md`.
+- **Sync** — session start compares sources with the manifest, re-ingests a
+  few changed files itself, and flags memory entries citing a changed file;
+  init ingests right away; manifest keeps the previous sha of each file.
+- **`.brse/config.local.json`** — personal, git-ignored layer on top of the
+  shared workspace config. Knowledge copies are git-ignored by default.
+- **API keys** — plugin `userConfig` (sensitive, OS keychain) and
+  `scripts/set-key.py` (`~/.config/brse-toolkit/secrets.env`); scripts read
+  env → plugin option → secrets file.
+
 ### Changed
 - Every skill ends with `review-gate`; analytical skills ingest sources
   first and use the manifest as their file list; `jp-vi-translate` uses the

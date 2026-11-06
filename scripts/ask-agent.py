@@ -54,7 +54,7 @@ def run_gemini(exe, prompt, timeout):
 
 def run_openai(prompt, config, timeout):
     p = config.get("providers", {}).get("openai", {})
-    key, model = os.environ.get(p.get("api_key_env", "OPENAI_API_KEY")), p.get("model")
+    key, model = brse_common.secret(p.get("api_key_env", "OPENAI_API_KEY")), p.get("model")
     if not key or not model:
         raise LookupError(f"needs env var {p.get('api_key_env')} and providers.openai.model")
     body = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt}]}).encode()

@@ -32,6 +32,9 @@ does the comparison; this skill owns the estimate's structure and content.)
 
 1. **Restate**: which estimate (file, sheets), what changes, the input
    sources (RFP, Q&A, source code, previous estimates), what is out of scope.
+   No requirement list / gap list yet for these documents → run
+   `scope-analysis` first (or `/brse-toolkit:estimate-project` for the whole
+   flow); every work item will point to an `R-` id from it.
 2. **Template and references.** The project's estimate template from
    `config.paths.templates`, or the estimate file being revised. Also check
    the personal library (`<py> ${CLAUDE_PLUGIN_ROOT}/scripts/library.py list --kind estimate`)

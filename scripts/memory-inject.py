@@ -13,6 +13,7 @@ import sys
 sys.dont_write_bytecode = True
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 
 import brse_common
@@ -25,6 +26,57 @@ def active_entries(md: Path) -> list:
         return []
     lines = [l.rstrip() for l in md.read_text(encoding="utf-8").splitlines()]
     return [l for l in lines if l.startswith("- ") and "<" not in l and "superseded" not in l]
+
+
+def load_script(name):
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), brse_common.ROOT / "scripts" / name)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def sync_sources(root: Path, config: dict) -> list:
+    """Compare source files with the knowledge manifest; re-ingest a few changes,
+    flag memory entries that cite a changed file."""
+    manifest_path = root / ".brse" / "knowledge" / "manifest.json"
+    if not manifest_path.is_file():
+        return ["Source documents are not in the knowledge base yet — run /brse-toolkit:ingest."]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    kb = load_script("kb-ingest.py")
+    current, changed = set(), []
+    for origin, src, f in kb.source_files(root, config):
+        if f is None:
+            continue
+        rel = f.relative_to(root).as_posix()
+        current.add(rel)
+        st, old = f.stat(), manifest.get(rel)
+        if not old or old.get("size") != st.st_size or abs(old.get("mtime", 0) - st.st_mtime) > 1:
+            changed.append(("new" if not old else "changed", rel))
+    changed += [("deleted", rel) for rel, v in manifest.items() if rel not in current and v.get("sha256")]
+    if not changed:
+        return []
+    out = ["Source documents changed since the last ingest: "
+           + ", ".join(f"{rel} ({kind})" for kind, rel in changed[:15]) + (" …" if len(changed) > 15 else "")]
+    if len(changed) <= 5:
+        py = config.get("runtime", {}).get("python") or sys.executable
+        try:
+            subprocess.run([py, str(brse_common.ROOT / "scripts" / "kb-ingest.py"), str(root)],
+                           capture_output=True, timeout=60, check=True)
+            out.append("Re-ingested them, so .brse/knowledge is current.")
+        except Exception:
+            out.append("Automatic re-ingest failed — run /brse-toolkit:ingest before analysing.")
+    else:
+        out.append("Run /brse-toolkit:ingest before analysing anything that depends on them.")
+    names = {Path(rel).name for _, rel in changed}
+    stale = []
+    for md in sorted((root / ".brse" / "memory" / "long").glob("*.md")):
+        for line in md.read_text(encoding="utf-8").splitlines():
+            if line.startswith("- ") and "superseded" not in line and any(n in line for n in names):
+                stale.append(f"{md.name}: {line[:160]}")
+    if stale:
+        out.append("These memory entries cite a changed document and may be stale — re-verify before relying on them:\n"
+                   + "\n".join(stale[:10]))
+    return out
 
 
 def feedback_top(root: Path) -> dict:
@@ -68,6 +120,7 @@ def main() -> None:
     counts = {f.stem: len(active_entries(f)) for f in sorted(mem.glob("*.md"))}
     out.append("Settled facts in .brse/memory/long (active entries): "
                + ", ".join(f"{k} {v}" for k, v in counts.items()) + ". Read the relevant file before working.")
+    out += sync_sources(root, config)
     conventions = active_entries(mem / "conventions.md")
     if conventions:
         out.append("Project conventions (apply them):\n" + "\n".join(conventions))

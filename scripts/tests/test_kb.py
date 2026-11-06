@@ -80,3 +80,33 @@ def test_only_changed_files_are_reconverted_and_deleted_files_dropped(ws, source
 def test_ingest_outside_workspace_is_an_error(tmp_path):
     r = run_script("kb-ingest.py", tmp_path, tmp=tmp_path)
     assert r.returncode == 1 and "init" in json.loads(r.stdout)["error"]
+
+
+def test_origin_tagging_and_filter(ws, sources, tmp_path):
+    cfg = json.loads((ws / ".brse" / "config.json").read_text(encoding="utf-8"))
+    (ws / "internal").mkdir()
+    (ws / "internal" / "estimate-notes.txt").write_text("見積前提: 注文登録は5人日", encoding="utf-8")
+    cfg["paths"]["internal"] = ["internal/"]
+    (ws / ".brse" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    ingest(ws, tmp_path)
+    manifest = json.loads((ws / ".brse" / "knowledge" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["internal/estimate-notes.txt"]["origin"] == "internal"
+    assert manifest["src-docs/features.xlsx"]["origin"] == "client"
+    both = json.loads(run_script("kb-search.py", "注文登録", ws, tmp=tmp_path).stdout)["results"]
+    assert {r["origin"] for r in both} == {"client", "internal"}
+    only = json.loads(run_script("kb-search.py", "注文登録", ws, "--origin", "client", tmp=tmp_path).stdout)["results"]
+    assert {r["origin"] for r in only} == {"client"}
+
+
+def test_session_start_resyncs_changed_sources_and_flags_stale_memory(ws, sources, tmp_path):
+    ingest(ws, tmp_path)
+    (ws / ".brse" / "memory" / "long" / "decisions-log.md").write_text(
+        "- Decision: memo says 在庫確認 — source: notes.txt, 2026-01-01 — status: active\n", encoding="utf-8")
+    import time
+    time.sleep(1.1)
+    (sources / "notes.txt").write_text("updated memo", encoding="utf-8")
+    r = run_script("memory-inject.py", stdin=json.dumps({"cwd": str(ws)}), tmp=tmp_path)
+    assert "src-docs/notes.txt (changed)" in r.stdout and "Re-ingested" in r.stdout
+    assert "may be stale" in r.stdout and "decisions-log.md" in r.stdout
+    manifest = json.loads((ws / ".brse" / "knowledge" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["src-docs/notes.txt"]["previous_sha256"]

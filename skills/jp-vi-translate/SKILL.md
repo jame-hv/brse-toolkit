@@ -40,6 +40,29 @@ whole documents or sheets, fixed terms.
   source table (same rows, same column order), never alternating source /
   target columns.
 
+## Translating a file (docx / xlsx / pptx)
+
+Never write a script for this — use the plugin's tools:
+
+1. `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/office-text.py extract <file> --max-chars 6000`
+   → every translatable unit with a stable id (body, tables, text boxes,
+   headers, footers, slide notes, string cells), `duplicates` (translate once,
+   reuse), `parts` (chunks for long documents) and `mixed_formatting`.
+2. Glossary check on the full text (below), then translate **part by part**,
+   each part as a `{id: text}` JSON:
+   - `mt.py` per part when an engine exists, then post-edit; otherwise
+   - the plugin's `translator` agent (pass the part JSON, languages, reader,
+     register and the glossary entries that apply). Same glossary and register
+     for every part; table-of-contents entries reuse the heading translations.
+3. Merge the parts into one translations JSON and run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/office-text.py apply <file> <translations.json> <out copy>`.
+   `untranslated` must be empty (or every remaining id justified, e.g. codes).
+4. `office-diff.py <original> <copy>`: only text changed, `identical_formatting`
+   true; `office.py render <copy> <dir>` and look at every page/slide —
+   overflow from longer text, fonts, line breaks. Paragraphs listed in
+   `mixed_formatting` (a bold word inside a sentence) → check them on the
+   image and fix emphasis by hand where it matters.
+
 ## Before translating any passage
 
 1. Read `.brse/memory/long/parties.md` — who is speaking, who the translation
@@ -96,6 +119,17 @@ whole documents or sheets, fixed terms.
    `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/ask-agent.py <prompt_file>`. Fix or list
    every difference it reports. `provider` is `none` → use a Claude subagent
    with no other context and say the check was not model-independent.
+
+## Checks on the result (always)
+
+- `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/lang-lint.py <translated text file> --lang <dst> --source-lang <src>`:
+  zero errors (untranslated source-script characters, half-width kana);
+  warnings (です/ます vs だ/である mix, width mix, long sentences) fixed or
+  justified.
+- Rubric review: `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/judge.py run <request> <translation> <source excerpt>`
+  (second model when available; otherwise run the plugin's `reviewer` agent
+  on the printed prompt and `judge.py parse` its reply). `language` and
+  `correctness` must pass; fix every `must_fix` item.
 
 ## Batch processing
 

@@ -2,7 +2,8 @@
 """Convert the workspace's source documents into searchable Markdown + an index.
 
 Usage: kb-ingest.py [project_dir] [--force]
-For every file under config.paths.sources:
+For every file under config.paths.sources (origin "client"), paths.internal
+("internal") and paths.deliverables ("delivered"):
   .brse/knowledge/docs/<source path>.md   readable Markdown copy, with a header
   .brse/knowledge/manifest.json           per file: sha256, status, parts, what could NOT be read
   .brse/knowledge/index.sqlite            FTS5 index of chunks (sheet / slide / page / block)
@@ -151,15 +152,39 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+ORIGINS = (("sources", "client"), ("internal", "internal"), ("deliverables", "delivered"))
+
+
+def source_files(root: Path, config: dict):
+    """(origin, configured path, file or None) for every file the knowledge base covers."""
+    paths = config.get("paths", {})
+    for key, origin in ORIGINS:
+        for src in paths.get(key, []) or []:
+            base = (root / src).resolve()
+            if not base.exists():
+                yield origin, src, None
+                continue
+            files = [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file())
+            for f in files:
+                if not f.name.startswith(("~$", ".")) and ".brse" not in f.relative_to(root).parts:
+                    yield origin, src, f
+
+
 def open_index(db: Path):
+    """FTS index; returns (connection, tokenizer, rebuilt). An index from before the
+    `origin` column existed is rebuilt."""
     con = sqlite3.connect(db)
+    cols = [r[1] for r in con.execute("PRAGMA table_info(chunks)")]
+    rebuilt = bool(cols) and "origin" not in cols
+    if rebuilt:
+        con.execute("DROP TABLE chunks")
     try:
-        con.execute("CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(path, ref, text, tokenize='trigram')")
+        con.execute("CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(path, ref, text, origin UNINDEXED, tokenize='trigram')")
         tokenizer = "trigram"
     except sqlite3.OperationalError:  # SQLite < 3.34 has no trigram tokenizer
-        con.execute("CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(path, ref, text)")
+        con.execute("CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(path, ref, text, origin UNINDEXED)")
         tokenizer = "unicode61"
-    return con, tokenizer
+    return con, tokenizer, rebuilt
 
 
 def main() -> None:
@@ -174,44 +199,48 @@ def main() -> None:
     docs.mkdir(parents=True, exist_ok=True)
     manifest_path = kb / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
-    con, tokenizer = open_index(kb / "index.sqlite")
+    con, tokenizer, rebuilt = open_index(kb / "index.sqlite")
+    force = force or rebuilt
 
     seen, changed = set(), []
-    for src in config.get("paths", {}).get("sources", []):
-        base = (root / src).resolve()
-        files = [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file()) if base.is_dir() else []
-        if not base.exists():
-            manifest[src] = {"status": "unreadable", "error": "source path does not exist"}
+    for origin, src, f in source_files(root, config):
+        if f is None:
+            manifest[src] = {"status": "unreadable", "origin": origin, "error": "configured path does not exist"}
             seen.add(src)
-        for f in files:
-            if f.name.startswith(("~$", ".")):
-                continue
-            rel = f.relative_to(root).as_posix()
-            seen.add(rel)
-            digest = sha256(f)
-            if not force and manifest.get(rel, {}).get("sha256") == digest:
-                continue
-            con.execute("DELETE FROM chunks WHERE path = ?", (rel,))
-            entry = {"sha256": digest, "converted_at": datetime.datetime.now().isoformat(timespec="seconds")}
-            try:
-                chunks, notes = convert(f)
-                out = docs / (rel + ".md")
-                out.parent.mkdir(parents=True, exist_ok=True)
-                body = [f"<!-- source: {rel} · sha256: {digest[:12]} · converted by kb-ingest -->", f"# {rel}", ""]
-                for ref, text in chunks:
-                    body += [f"## {ref}", "", text, ""]
-                    con.execute("INSERT INTO chunks (path, ref, text) VALUES (?, ?, ?)", (rel, ref, text))
-                if notes:
-                    body += ["## Not read as text", ""] + [f"- {n}" for n in notes]
-                out.write_text("\n".join(body), encoding="utf-8")
-                visual = [n for n in notes if "image" in n or "chart" in n or "picture" in n]
-                entry.update({"status": "partial" if visual or not chunks else "ok",
-                              "markdown": out.relative_to(root).as_posix(),
-                              "parts": [r for r, _ in chunks], "not_read": notes})
-            except Exception as e:
-                entry.update({"status": "unreadable", "error": f"{type(e).__name__}: {e}"})
-            manifest[rel] = entry
-            changed.append(rel)
+            continue
+        rel = f.relative_to(root).as_posix()
+        seen.add(rel)
+        st = f.stat()
+        old = manifest.get(rel, {})
+        digest = sha256(f)
+        if not force and old.get("sha256") == digest:
+            old.update({"mtime": st.st_mtime, "size": st.st_size, "origin": origin})
+            continue
+        con.execute("DELETE FROM chunks WHERE path = ?", (rel,))
+        entry = {"sha256": digest, "origin": origin, "mtime": st.st_mtime, "size": st.st_size,
+                 "converted_at": datetime.datetime.now().isoformat(timespec="seconds")}
+        if old.get("sha256"):
+            entry["previous_sha256"] = old["sha256"]
+            entry["previous_converted_at"] = old.get("converted_at")
+        try:
+            chunks, notes = convert(f)
+            out = docs / (rel + ".md")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            body = [f"<!-- source: {rel} · sha256: {digest[:12]} · converted by kb-ingest -->", f"# {rel}", ""]
+            for ref, text in chunks:
+                body += [f"## {ref}", "", text, ""]
+                con.execute("INSERT INTO chunks (path, ref, text, origin) VALUES (?, ?, ?, ?)", (rel, ref, text, origin))
+            if notes:
+                body += ["## Not read as text", ""] + [f"- {n}" for n in notes]
+            out.write_text("\n".join(body), encoding="utf-8")
+            visual = [n for n in notes if "image" in n or "chart" in n or "picture" in n]
+            entry.update({"status": "partial" if visual or not chunks else "ok",
+                          "markdown": out.relative_to(root).as_posix(),
+                          "parts": [r for r, _ in chunks], "not_read": notes})
+        except Exception as e:
+            entry.update({"status": "unreadable", "error": f"{type(e).__name__}: {e}"})
+        manifest[rel] = entry
+        changed.append(rel)
     for gone in set(manifest) - seen:
         con.execute("DELETE FROM chunks WHERE path = ?", (gone,))
         md = docs / (gone + ".md")

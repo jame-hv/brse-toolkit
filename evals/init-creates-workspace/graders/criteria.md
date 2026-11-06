@@ -12,8 +12,8 @@ Pass only if ALL of these hold, judged from the tool calls and the final reply:
 3. `.brse/memory/long/` contains parties, glossary, conventions and
    decisions-log files holding only a title and schema — no invented terms,
    parties or decisions.
-4. `.brse/memory/short/` and `.brse/knowledge/docs/` exist, `config.json` has `"layout_version": 2`, `memory/long/` also has `feedback-log.md`, and `.brse/.gitignore`
-   ignores `memory/short/` and `knowledge/index.sqlite`.
+4. `.brse/memory/short/` and `.brse/knowledge/` exist (ingest ran), `config.json` has `"layout_version": 2`, `config.local.json` holds the reply language, `memory/long/` also has `feedback-log.md` and `deliverables-log.md`, and `.brse/.gitignore`
+   ignores `memory/short/`, `knowledge/` and `config.local.json`.
 5. `CLAUDE.md` contains a block between `<!-- brse-toolkit:start -->` and
    `<!-- brse-toolkit:end -->` that mentions sample-shop and `input/`.
 6. The agent re-ran `brse-config.py` (or equivalent) after creating the files

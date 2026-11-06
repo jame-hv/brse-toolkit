@@ -39,7 +39,7 @@ def post_json(url, payload, headers, timeout=120):
 
 
 def deepl(text, src, dst, config):
-    key = os.environ.get(config.get("providers", {}).get("deepl", {}).get("api_key_env", "DEEPL_API_KEY"))
+    key = brse_common.secret(config.get("providers", {}).get("deepl", {}).get("api_key_env", "DEEPL_API_KEY"))
     if not key:
         raise LookupError("no DeepL key in the environment")
     url = os.environ.get("BRSE_DEEPL_URL") or (
@@ -53,7 +53,7 @@ def deepl(text, src, dst, config):
 
 def openai(text, src, dst, config):
     p = config.get("providers", {}).get("openai", {})
-    key, model = os.environ.get(p.get("api_key_env", "OPENAI_API_KEY")), p.get("model")
+    key, model = brse_common.secret(p.get("api_key_env", "OPENAI_API_KEY")), p.get("model")
     if not key or not model:
         raise LookupError(f"needs env var {p.get('api_key_env')} and providers.openai.model")
     instruction = (f"Translate the user's text {'from ' + LANG_NAME[src] + ' ' if src else ''}into "

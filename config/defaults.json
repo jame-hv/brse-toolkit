@@ -9,6 +9,8 @@
   },
   "paths": {
     "sources": ["documents/"],
+    "internal": [],
+    "deliverables": [],
     "templates": ["templates/"],
     "outputs": "output/",
     "latest_rule": "mtime"
@@ -51,6 +53,9 @@
       "pptx": ["deckcraft-cli", "python"],
       "image": ["photocraft-cli", "python"]
     }
+  },
+  "quality": {
+    "min_scores": {}
   },
   "memory": {
     "auto_log_session": true,

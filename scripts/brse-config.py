@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Merge brse-toolkit config: plugin defaults < user < workspace.
+"""Merge brse-toolkit config: plugin defaults < user < workspace < workspace-local.
 
 Usage: brse-config.py [project_dir]
   plugin defaults: <plugin>/config/defaults.json
   user:            $XDG_CONFIG_HOME/brse-toolkit/config.json (default ~/.config/...)
-  workspace:       nearest .brse/config.json at or above project_dir (default cwd)
+  workspace:       nearest .brse/config.json at or above project_dir (default cwd) — shared, committed
+  workspace-local: .brse/config.local.json next to it — personal, git-ignored
 Prints {"config", "loaded", "workspace_root", "warnings"}; exit 1 on {"error"}.
 Objects merge key by key; any other value (lists included) replaces the lower layer.
 """
@@ -66,7 +67,7 @@ def resolve(start: Path) -> dict:
     xdg = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     user = Path(xdg) / "brse-toolkit" / "config.json"
     root = find_workspace(start)
-    layers = [DEFAULTS, user] + ([root / ".brse" / "config.json"] if root else [])
+    layers = [DEFAULTS, user] + ([root / ".brse" / "config.json", root / ".brse" / "config.local.json"] if root else [])
     config, loaded, warnings = {}, [], []
     for i, path in enumerate(layers):
         if not path.is_file():

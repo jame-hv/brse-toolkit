@@ -39,6 +39,9 @@ named like "template" → template folder).
    replies to the user should be in.
 3. Which folders hold source material from the client (propose from step 2).
 4. Which folders hold the client's templates, if any.
+4b. Which folders hold our internal documents (estimates in progress, WBS,
+   internal minutes, analysis), and where the versions actually sent to the
+   client are kept (propose from step 2; "none" is a valid answer).
 5. The main deliverables for this project (e.g. estimate, proposal deck,
    detail design, test spec, Q&A list) — and for each one: is it read by the
    client or only internally, and which file format.
@@ -50,9 +53,10 @@ Don't guess answers the user didn't give — leave the default and say so.
 ```
 .brse/
 ├── config.json
-├── .gitignore            # contents: "memory/short/" and "knowledge/index.sqlite"
+├── config.local.json     # personal settings (reply language…), never committed
+├── .gitignore            # contents: "memory/short/", "knowledge/", "config.local.json"
 ├── memory/
-│   ├── long/             # parties.md, glossary.md, conventions.md, decisions-log.md, feedback-log.md
+│   ├── long/             # parties.md, glossary.md, conventions.md, decisions-log.md, feedback-log.md, deliverables-log.md
 │   └── short/            # session logs written by the plugin's hooks
 └── knowledge/
     └── docs/             # source documents converted to Markdown
@@ -68,18 +72,22 @@ inherited from the plugin defaults and the user's own config):
     "name": "<answer 1>",
     "client_language": "<answer 2>",
     "team_language": "<answer 2>",
-    "reply_language": "<answer 2>",
     "deliverables": [{"name": "<answer 5>", "reader": "client|internal", "format": "xlsx|pptx|docx|md"}]
   },
   "paths": {
     "sources": ["<answer 3>"],
+    "internal": ["<answer 4b — internal>"],
+    "deliverables": ["<answer 4b — sent to the client>"],
     "templates": ["<answer 4>"],
     "outputs": "<an output folder — propose `output/`>"
   }
 }
 ```
 
-Never write an API key or any other secret into this file — providers are
+`.brse/config.local.json` holds what is personal: `{"project": {"reply_language": "<answer 2>"}}`.
+It is git-ignored, so teammates sharing the folder keep their own.
+
+Never write an API key or any other secret into either file — providers are
 configured by environment-variable name only (see the README).
 
 The `memory/long/` files start empty except for their title and schema
@@ -119,6 +127,14 @@ Entry schema:
   Source: <QA id / message / meeting>, <date>
   Status in the official doc: <FULLY updated / PARTIALLY updated / NOT YET updated>
   Status: active
+```
+
+`deliverables-log.md` (what was sent to the client, so "which version does the client have?" has an answer):
+```
+# Deliverables log
+
+Entry schema:
+- <YYYY-MM-DD> | <file name> | <version> | sent to: <party> | <what it answers / contains>
 ```
 
 `feedback-log.md` (filled by `/brse-toolkit:memory-review`):
@@ -161,7 +177,8 @@ Client documents: <client language> · Team: <team language> · Reply to the use
 | <one row per deliverable from answer 5> | <client / internal> | <xlsx / pptx / docx / md> | <template path, or "none yet"> | <language> |
 
 ## Where things are
-- Client sources: <source folders>. Converted, searchable copies: `.brse/knowledge/docs/`
+- Client sources (requirements): <source folders>. Internal documents (our assumptions): <internal folders>.
+  Sent to the client (commitments): <deliverables folders>. Converted, searchable copies of all three: `.brse/knowledge/docs/`
   (refresh with `/brse-toolkit:ingest`; the manifest lists what could not be read as text).
 - Client templates: <template folders>.
 - Settled facts: `.brse/memory/long/` — parties, glossary, conventions, decisions-log. Read before any work.
@@ -184,7 +201,10 @@ Client documents: <client language> · Team: <team language> · Reply to the use
 | research a technology / regulation | `brse-toolkit:research-jp-tech` |
 | make a proposal | `brse-toolkit:proposal-gen` |
 | produce a report / slide / Word file in the client's format | `brse-toolkit:report-gen` |
+| analyse documents, list gaps, write the Q&A to clear the scope | `brse-toolkit:scope-analysis` |
+| run the whole estimate flow (intake → Q&A → answers → estimate → check) | `/brse-toolkit:estimate-project` |
 | create, revise or check an estimate (見積書, 前提条件) | `brse-toolkit:estimation` |
+| draft an approach / policy (方針, 進め方) from code and documents | `brse-toolkit:approach` |
 | draw an architecture / flow / transition diagram | `brse-toolkit:diagram` |
 | hand work back (always, last step) | `brse-toolkit:review-gate` |
 Several apply → name them in the restatement (rule 1) and chain them.
@@ -201,7 +221,9 @@ Several apply → name them in the restatement (rule 1) and chain them.
 3. **Evidence or "unconfirmed".** Every conclusion cites file + sheet/cell,
    page or `file:line`. No source → write that it is unconfirmed and must be
    asked. Never present a guess, a typical value or a remembered fact as the
-   client's.
+   client's. A requirement cites a client document; something from our
+   internal documents is labelled "(internal)"; a figure the client already
+   received must equal the delivered version.
 4. **Stay in scope.** Do only what was asked. A new approach, a PoC, extra
    rows, renames, deletions, extra sections → propose and wait for a yes.
 5. **Feedback ledger.** Keep a numbered list of every correction the user gave
@@ -239,8 +261,12 @@ version).
 
 ## 7. Report
 
+Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/kb-ingest.py` now (it only reads the
+documents and writes `.brse/knowledge/`), so the sources are searchable from
+the first task; from then on the session-start hook re-syncs changed files.
+
 Tell the user, in the reply language: what was created, which answers were
-left at their defaults, and that `/brse-toolkit:doctor` shows which optional
-tools (second agent, machine translation, draw.io) are available. Then offer
-to run `/brse-toolkit:ingest` now so the source documents become searchable
-(run it only on a yes).
+left at their defaults, the ingest result (files read / partial / unreadable,
+naming the partial and unreadable ones), and that `/brse-toolkit:doctor` shows
+which optional tools (second agent, machine translation, draw.io, office
+CLIs) are available.

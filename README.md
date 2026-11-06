@@ -56,6 +56,7 @@ for the full architecture.
 | `/brse-toolkit:ingest` | Converts client documents into searchable Markdown + an index, and lists what could not be read as text |
 | `/brse-toolkit:memory-review` | Promotes settled facts and your corrections from session logs into long-term memory, with your approval per item |
 | `/brse-toolkit:library` | Saves approved deliverables for reuse in other projects |
+| `/brse-toolkit:estimate-project` | Whole estimate flow: intake → scope & gaps → Q&A → answers → estimate → check, with a gate at each stage |
 
 ## How memory works
 
@@ -79,7 +80,22 @@ for the full architecture.
 | Office files | the office CLIs in `tools.office_order` | Python libraries |
 | Diagrams | draw.io CLI (`.drawio` and Mermaid → PNG) | Mermaid text, not rendered |
 
-API keys live in environment variables only; the config names the variable.
+API keys never go into project files. Three places, first found wins:
+an environment variable · the plugin's own settings (`claude plugin configure
+brse-toolkit` — stored in the OS keychain) · `~/.config/brse-toolkit/secrets.env`,
+written by `python3 <plugin>/scripts/set-key.py OPENAI_API_KEY` (hidden input,
+permissions 600).
+
+## Quality checks that run on every deliverable
+
+| Check | Tool |
+|---|---|
+| Cited evidence really says what the answer claims (cells, lines, quotes) | `scripts/verify-claims.py` |
+| Office copy changed only what was intended, formatting kept | `scripts/office-diff.py` |
+| Rendered pages / slides / sheets looked at | `scripts/office.py render` (office CLI, else LibreOffice) |
+| Untranslated text, mixed です/ます–だ/である, half-width kana… | `scripts/lang-lint.py` |
+| Diagram: orphans, dangling edges, overlaps | `scripts/drawio-tool.py lint` |
+| Correctness, completeness, logic, evidence, language, scope scored by a second model (or the plugin's `reviewer` agent) | `scripts/judge.py` |
 
 ## Dependencies
 

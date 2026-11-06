@@ -83,3 +83,22 @@ def test_free_form_map_children_are_not_unknown_keys(tmp_path):
     assert code == 0
     assert out["warnings"] == []
     assert out["config"]["tools"]["paths"]["gridcraft-cli"] == "/x/gridcraft-cli"
+
+
+def test_local_config_overrides_shared_workspace_config(tmp_path):
+    proj = tmp_path / "proj"
+    write(proj / ".brse" / "config.json", {"project": {"reply_language": "vi"}, "paths": {"outputs": "out/"}})
+    write(proj / ".brse" / "config.local.json", {"project": {"reply_language": "en"}})
+    out, code = run(proj, tmp_path / "home")
+    assert code == 0
+    assert out["config"]["project"]["reply_language"] == "en"
+    assert out["config"]["paths"]["outputs"] == "out/"
+    assert out["loaded"][-1].endswith("config.local.json")
+
+
+def test_local_config_refuses_secrets_too(tmp_path):
+    proj = tmp_path / "proj"
+    write(proj / ".brse" / "config.json", {})
+    write(proj / ".brse" / "config.local.json", {"providers": {"deepl": {"api_key": "k"}}})
+    out, code = run(proj, tmp_path / "home")
+    assert code == 1 and "config.local.json" in out["error"]

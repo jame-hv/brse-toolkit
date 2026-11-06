@@ -45,3 +45,25 @@ def read_hook_input() -> dict:
         return json.loads(sys.stdin.read() or "{}")
     except ValueError:
         return {}
+
+
+def secrets_file() -> Path:
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "brse-toolkit" / "secrets.env"
+
+
+def secret(env_name: str):
+    """API key lookup, never from project files: environment variable → plugin
+    userConfig (Claude Code exposes it as CLAUDE_PLUGIN_OPTION_<NAME>, stored in
+    the OS keychain) → ~/.config/brse-toolkit/secrets.env (written by set-key.py)."""
+    if not env_name:
+        return None
+    for name in (env_name, f"CLAUDE_PLUGIN_OPTION_{env_name.upper()}"):
+        if os.environ.get(name):
+            return os.environ[name]
+    f = secrets_file()
+    if f.is_file():
+        for line in f.read_text(encoding="utf-8").splitlines():
+            k, _, v = line.partition("=")
+            if k.strip() == env_name and v.strip():
+                return v.strip()
+    return None
