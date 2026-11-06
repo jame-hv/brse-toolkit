@@ -54,8 +54,8 @@ Never skipped because the task "looked simple".
    and is named), (c) `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/office.py render <copy> <dir>`
    and look at every image — overflow, fonts, colours, merged cells, images,
    shapes; .xlsx written through a library → `office.py check <copy>` too.
-   Diagrams: `drawio-tool.py check` passes (criteria 1, 2, 3, 5, 6, 7) and the
-   reader test passes (criterion 8) — see the `diagram` skill.
+   Diagrams: `drawio-tool.py check` passes and the image-only reader test
+   passes — see the `diagram` skill.
    Text in another language: `lang-lint.py` with zero errors.
 5b. **Wording, sentence by sentence.** Save the reply text (and every
    deliverable's text) to a file and run

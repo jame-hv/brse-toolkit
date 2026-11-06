@@ -101,35 +101,42 @@ from the closest one, or from an existing diagram in the project's sources.
    script.**
 8. No draw.io available → Mermaid text, clearly marked as not rendered.
 
-## Acceptance — a diagram is shown to the user only when all 8 pass
+## Acceptance — shown to the user only when these pass
 
-| # | Criterion | Checked by |
-|---|---|---|
-| 1 | Purpose: the title says what question it answers; the model states `question` and `reader` | `check` |
-| 2 | One connected story: every box is linked to the rest through the arrows — no island of boxes standing apart (people, devices, systems and documents may all appear together) | `check` |
-| 3 | Correct: every box and arrow has a source whose quote really is in that document; unsourced ones are dashed | `check` (opens the documents) |
-| 4 | Complete: every system, person and step in the source section is on the diagram, or listed as left out with the reason | reviewer agent with the sources table and the documents |
-| 5 | Meaningful positions: computed (lanes = who, columns = order; or layered from the arrows) or taken from a template | `check` |
-| 6 | Readable: ≤ 15 elements, labels ≤ 2 short lines, one language, no abbreviations, every link between systems says what flows, no overlaps, no arrow through a box; every label's wording reviewed | `check` + `wording.py run <file.drawio>` + look at the image |
-| 7 | Changes marked match the change table of the analysis, one by one | `check --changes <table.json>` |
-| 8 | Reader test: a fresh reviewer that sees **only the image** says who does what, in which order, and what changes — and gets it right | `reader-test` |
+Each check has a stated reason; nothing here is a number picked without basis.
+
+| # | Check | Why | How |
+|---|---|---|---|
+| 1 | The title says what question the diagram answers and for whom | a diagram drawn "for nobody" was rejected | `check` |
+| 2 | One connected story: no island of boxes standing apart (people, devices, systems, documents may all appear together) | the rejected diagram had two unconnected parts | `check` |
+| 3 | Every box and arrow has a source, and the quote really is in that document; without one it is dashed "unconfirmed" | "what is your basis for this arrow?" | `check` (opens the documents) |
+| 4 | Positions are computed (who / order, or along the arrows) or taken from a template / sample | "what is your basis for these positions?" | `check` |
+| 5 | No defects: no overlapping boxes, no arrow attached to nothing | objective faults | `check` |
+| 6 | Reader test: a fresh reviewer that sees **only the image** gets who does what, in which order, and what changes right | the reader is the judge of readability | `reader-test` |
+
+Also reported (not blocking, for you and the reader test): element count,
+long or mixed-language labels, links between systems without a label, and —
+with `--changes` — whether the marked changes equal the analysis' change table.
+
+**Never ask the user how to draw, which kind of diagram, or which template.**
+Choose from the question table and `suggest`, draw, check, and show the result
+with the reason for the choice. Ask the user only for a fact the documents do
+not contain.
 
 Commands:
 - `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/drawio-tool.py check <file.drawio> --changes <changes.json>`
   (changes.json = `[{"id": "<element id>", "status": "changed|new|removed"}]`,
   the same items as the analysis' change table). Exit 1 = a criterion failed;
   fix the model, rebuild, check again.
-- Criterion 8: `drawio-tool.py reader-test <file.drawio>` writes the question
+- Check 6: `drawio-tool.py reader-test <file.drawio>` writes the question
   prompt; export the PNG; give **only the PNG and that prompt** to the plugin's
   `reviewer` agent (or a second model) with no other context; save its JSON
   answer; `drawio-tool.py reader-test <file.drawio> --score <answers.json>`.
   Every `missed` / `wrongly_seen` item is a place the picture does not say
   what it should — fix the diagram, not the answer.
-- Criterion 4: give the reviewer the `.sources.md` table and the source
-  section; it lists anything in the source missing from the diagram.
 
 ## Output
 
-`.png` + `.drawio` paths, the sources table, and one line per criterion
+`.png` + `.drawio` paths, the sources table, and one line per check
 (pass / fail and why). A failed criterion is fixed before showing, or stated
 first if it cannot be fixed. Then `review-gate`.

@@ -1,6 +1,6 @@
 {
   "name": "brse-toolkit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "BrSE productivity toolkit for Japanese-Vietnamese translation, specification and code analysis, Excel validation, output verification, report generation, and project-aware memory management.",
   "author": {
     "name": "Vu Dinh Hoang"

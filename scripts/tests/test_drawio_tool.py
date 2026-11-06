@@ -225,6 +225,7 @@ def test_check_fails_disconnected_part_wrong_quote_and_mismatched_changes(tmp_pa
     code, out = check(tmp_path, "--changes", tmp_path / "chg.json")
     c = out["criteria"]
     assert code == 1 and not c["2_one_story"]["pass"] and not c["3_correct"]["pass"] and not c["7_changes"]["pass"]
+    assert c["6_no_defects"]["pass"] is True  # long labels etc. are notes for the reader test, not blockers
     assert c["2_one_story"]["detail"]["separate_parts"] == 2
     assert c["7_changes"]["detail"]["drawn_not_in_table"] == ["e3", "s5"]
 

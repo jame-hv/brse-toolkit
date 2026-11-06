@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.2.0 — 2026-11-06
+
+### Changed
+- Diagram acceptance keeps only checks with a stated reason: purpose in the
+  title, one connected story (no island of boxes), every box and arrow
+  sourced and its quote verified, computed or template positions, no
+  overlapping or dangling elements, and the image-only reader test. Made-up
+  limits (box count, label length) and the "one kind of view" rule are gone;
+  those facts are reported for the reader test instead.
+- The kind of diagram is chosen from the question it must answer; a template
+  is used only when `drawio-tool.py suggest` measures that it already has the
+  needed icons (`catalog` reads every bundled template).
+- The agent never asks the user how to draw; it chooses, draws, checks and
+  states the reason.
+
+### Fixed
+- `drawio-tool.py kinds` no longer lists hand-placed layout.
+
 ## 2.1.0 — 2026-11-06
 
 From real use on an estimate project, where the diagram of the current system

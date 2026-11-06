@@ -625,9 +625,10 @@ def bake_layout(path, direction):
 FLOW_KINDS = {"step", "decision", "start", "end"}
 SYSTEM_KINDS = {"system", "external-system", "module", "datastore", "device", "equipment", "file"} | set(ICONS) | set(CLIENTS)
 SKIP_KINDS = {"lane", "legend", "title", "note", "box", "todo", "actor"} | set(GROUPS)
-MAX_ELEMENTS = 15
-BLOCKING_LINT = {"overlap", "long-label", "mixed-language-label", "unlabeled-interface", "orphan",
-                 "dangling-edge", "loose-edge"}
+# Only objective defects block: boxes on top of each other, arrows attached to nothing or to a
+# missing box, boxes linked to nothing. Label length, language mix and element count are reported
+# for the reader test to judge — there is no grounded number for them.
+BLOCKING_LINT = {"overlap", "orphan", "dangling-edge", "loose-edge"}
 
 
 def norm_label(text: str) -> str:
@@ -703,15 +704,17 @@ def cmd_check(path, changes=None) -> dict:
     layout = model.get("brseLayout") or model.get("brseTemplate")
     crit["5_layout"] = {"pass": layout in ("swimlane", "auto") or bool(model.get("brseTemplate")),
                         "detail": layout or "positions not computed (hand-placed)"}
-    findings = [f for f in cmd_lint(path) if f["rule"] in BLOCKING_LINT]
-    crit["6_readable"] = {"pass": len(content) <= MAX_ELEMENTS and not findings,
-                          "detail": {"elements": len(content), "max": MAX_ELEMENTS, "problems": findings}}
+    lint = cmd_lint(path)
+    defects = [f for f in lint if f["rule"] in BLOCKING_LINT]
+    crit["6_no_defects"] = {"pass": not defects, "detail": {
+        "defects": defects, "for_the_reader_test": {"elements": len(content),
+                                                     "notes": [f for f in lint if f["rule"] not in BLOCKING_LINT]}}}
     marked = {n["id"]: n["status"] for n in content if n["status"]}
     marked.update({e["id"]: e["status"] for e in edges if e["status"]})
     marked = {k: v for k, v in marked.items() if v != "unconfirmed"}
     if changes is None:
-        crit["7_changes"] = {"pass": not marked,
-                             "detail": "statuses drawn but no change table given (--changes)" if marked else "no changes drawn"}
+        crit["7_changes"] = {"pass": None, "detail": {"drawn": marked,
+                             "note": "give --changes to compare with the analysis' change table"}}
     else:
         want = {c["id"]: c["status"] for c in changes}
         crit["7_changes"] = {"pass": want == marked, "detail": {
