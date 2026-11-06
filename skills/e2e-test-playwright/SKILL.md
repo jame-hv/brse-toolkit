@@ -136,3 +136,7 @@ Apply `verify-output` — run
 `${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on
 the draft response. Every NG's description is a factual claim about observed
 behavior — cite the evidence file: the configured `style.source_tag` with `<config.paths.outputs>/e2e-evidence/<run-id>/TC<No>_NG.png` as the ref.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

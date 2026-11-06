@@ -17,7 +17,8 @@ def fake_exe(folder, name):
 
 def run(tmp_path, path_dirs, project=None):
     env = {**os.environ, "PATH": os.pathsep.join(str(d) for d in path_dirs),
-           "XDG_CONFIG_HOME": str(tmp_path / "cfg"), "XDG_DATA_HOME": str(tmp_path / "data")}
+           "XDG_CONFIG_HOME": str(tmp_path / "cfg"), "XDG_DATA_HOME": str(tmp_path / "data"),
+           "LOCALAPPDATA": str(tmp_path / "data")}
     r = subprocess.run([sys.executable, str(SCRIPT), str(project or tmp_path)],
                        capture_output=True, text=True, encoding="utf-8", env=env)
     assert r.returncode == 0, r.stderr

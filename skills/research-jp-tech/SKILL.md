@@ -69,3 +69,7 @@ A finding that settles a project question → ask whether to record it in
 - Every finding row has a URL and an access date; nothing comes from memory.
 - Version scope is explicit on every compatibility claim.
 - Run `verify-output`.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

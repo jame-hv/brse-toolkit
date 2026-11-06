@@ -75,3 +75,7 @@ kept out of the file itself (in addition to the in-file placement in step 4).
 - Template formatting preserved (verified on the rendered image).
 - No original file overwritten.
 - Run `verify-output`.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

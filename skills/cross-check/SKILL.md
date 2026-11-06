@@ -38,6 +38,12 @@ source changed, and does `decisions-log.md` match an updated DD.
    or listed as *not read* with the reason. Slides and documents are read as
    text, not searched for numbers; images and shapes go through
    `excel-analyze` / `image-analyze`.
+   When the workspace has a knowledge index, run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/kb-ingest.py` first and use
+   `.brse/knowledge/manifest.json` as the file list (its `partial` /
+   `unreadable` entries are exactly what still needs visual reading or is
+   missing); `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/kb-search.py "<term>"` locates
+   candidates across all documents.
 3. Keyword search only *locates* candidates — a match/mismatch verdict always
    comes from reading both sides.
 
@@ -126,3 +132,7 @@ yes → ask the user to confirm updating the entry's status; no → keep flaggin
 - Never "everything matches" from a sample — the verdict states how many
   items were compared.
 - Run `verify-output`.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

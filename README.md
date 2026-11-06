@@ -46,6 +46,41 @@ set them as environment variables and name the variable in the config
 `docs/superpowers/specs/2026-08-02-brse-toolkit-design.md` in the source repo
 for the full architecture.
 
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/brse-toolkit:setup` | Installs what the plugin needs: Python packages into a private venv, optional tools only with your yes per item |
+| `/brse-toolkit:doctor` | Shows which tools are available on this machine and what is missing (read-only) |
+| `/brse-toolkit:init` | Sets up a workspace (`.brse/`), asks about the project, writes the project block of `CLAUDE.md` |
+| `/brse-toolkit:ingest` | Converts client documents into searchable Markdown + an index, and lists what could not be read as text |
+| `/brse-toolkit:memory-review` | Promotes settled facts and your corrections from session logs into long-term memory, with your approval per item |
+| `/brse-toolkit:library` | Saves approved deliverables for reuse in other projects |
+
+## How memory works
+
+- **Session logs** (`.brse/memory/short/`) are written automatically by the
+  plugin's `Stop` / `PreCompact` hooks: your requests, files written, the last
+  reply. Nothing is summarised by a model; old logs are pruned after
+  `memory.short_retention_days`.
+- **Long-term memory** (`.brse/memory/long/`): parties, glossary, conventions,
+  decisions, and a feedback log of your corrections by category. Written only
+  with your approval (`/brse-toolkit:memory-review`, or when you confirm a fact).
+- **At session start** a hook tells the agent the project, the active
+  conventions, the most frequent corrections of the last 30 days, and what the
+  previous session did.
+
+## Optional providers
+
+| Capability | Used when available | Otherwise |
+|---|---|---|
+| Second-agent review / back-translation | `codex`, `gemini` (signed in), or OpenAI API (`providers.openai.model` + key env var) | a Claude subagent, reported as not model-independent |
+| Machine translation base layer | DeepL (`DEEPL_API_KEY`), OpenAI | Claude alone, reported as such |
+| Office files | the office CLIs in `tools.office_order` | Python libraries |
+| Diagrams | draw.io CLI (`.drawio` and Mermaid → PNG) | Mermaid text, not rendered |
+
+API keys live in environment variables only; the config names the variable.
+
 ## Dependencies
 
     pip install -r requirements.txt        # plugin users: /brse-toolkit:setup does this for you

@@ -73,3 +73,7 @@ Every sentence cites `file:line`, inline or inside `config.style.source_tag`.
 - Every step of the flow was read in the code, not inferred from a name.
 - Every sentence has a `file:line`.
 - Run `verify-output`.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

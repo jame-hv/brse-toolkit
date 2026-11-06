@@ -82,12 +82,20 @@ whole documents or sheets, fixed terms.
 6. **Natural target language**: read the result as a native reader would. A
    sentence that only makes sense if you know the source → rewrite it.
 
-## Second check (when available)
+## Machine translation base layer and second check
 
-`/brse-toolkit:doctor` shows a second agent (codex / gemini) or a machine
-translation provider → have it back-translate the key passages (decisions,
-numbers, conditions) and compare the meaning with the source. Differences →
-fix or list them. None available → say the check was done by Claude only.
+1. **Base layer**: save the source to a file and run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/mt.py <text_file> --from <src> --to <dst>`.
+   `engine` is `deepl` / `openai` → start from that translation and post-edit
+   it (register, glossary terms, density, naturalness — the rules above).
+   `engine` is `none` → translate yourself and say in the output that no
+   machine engine was available (the `tried` list says why).
+2. **Second check**: write a prompt with the source and your translation,
+   asking to back-translate the key passages (decisions, numbers, conditions)
+   and list meaning differences, then run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/ask-agent.py <prompt_file>`. Fix or list
+   every difference it reports. `provider` is `none` → use a Claude subagent
+   with no other context and say the check was not model-independent.
 
 ## Batch processing
 
@@ -114,3 +122,7 @@ The translation (or the path of the translated copy), then:
 - **Checks run** — numbers/names compared, consistency script, second check.
 
 Run `verify-output` on the notes section.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

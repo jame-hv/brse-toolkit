@@ -42,7 +42,8 @@ Q&A list.
    Same intent as an answered question → reuse that answer and cite its No.,
    don't compose a different one.
 4. **Find the answer in the sources** (spec, design, code via
-   `code-to-business`, decisions-log). Cite it. Not found → the answer says
+   `code-to-business`, decisions-log; `kb-search.py` locates candidates across
+   the ingested documents — then read the part). Cite it. Not found → the answer says
    it is unconfirmed and what will be checked, never a guess at the client's
    intent.
 5. **Write**:
@@ -73,3 +74,7 @@ one pass. **Subagents never write to `.brse/memory/` themselves.**
 - An answer that is a new decision → ask whether to record it in
   `.brse/memory/long/decisions-log.md`; write it immediately on a yes.
 - Run `verify-output` on the draft.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

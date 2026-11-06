@@ -62,6 +62,24 @@ situations need two different markers, don't conflate them:
   concrete question is what "never invent technical content" actually
   requires in this case, not a guess and not silence.
 
+## Steps
+
+1. **Restate**: which screen / feature / batch, new DD or update, template
+   (client's or default), reader, language.
+2. **Collect the content**: `code-to-business` output for the flow (every
+   statement with `file:line`), `.brse/memory/long/decisions-log.md`, the
+   existing DD if updating, and the client sources (`kb-search.py` to locate,
+   then read the parts in full).
+3. **Fill every section of the template in order.** Each item (field,
+   validation, processing step, table column, error) carries its source in the
+   working notes; "該当なし" / "未確認" exactly as defined above.
+4. **Consistency inside the document**: field names identical between the
+   screen layout, item definition, input check and table definition sections;
+   every error message referenced in processing exists in the error section.
+5. **Updating an existing DD**: change only what the new information
+   requires, add a 改訂履歴 row (date, section, change, reason), and keep the
+   rest byte-identical — verify with `office-diff.py` after writing.
+
 ## Output
 
 Export the file via `report-gen` (Word/Excel in the format the client uses).
@@ -71,3 +89,7 @@ Export the file via `report-gen` (Word/Excel in the format the client uses).
 Apply `verify-output` — run
 `${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on the
 draft response before sending.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

@@ -26,7 +26,39 @@ asks questions instead of copying a fixed template. Existing 1.x workspaces
 - **Plugin-level tests** (`scripts/tests/test_plugin_structure.py`) and the
   first behavior eval (`evals/init-creates-workspace`).
 
+- **Memory by hooks** — `SessionStart` injects project, conventions, recent
+  correction categories and the previous session; `Stop` / `PreCompact` write
+  `.brse/memory/short/<date>-<session>.md` from the transcript (computed,
+  idempotent, pruned by retention). `/brse-toolkit:memory-review` promotes
+  approved items to long-term memory; `feedback-log.md` +
+  `scripts/feedback-stats.py` measure corrections by category.
+- **Knowledge base** — `scripts/kb-ingest.py` (xlsx incl. hidden sheets,
+  docx, pptx incl. notes, pdf via pdftotext, text incl. cp932) →
+  `.brse/knowledge/docs/*.md` + `manifest.json` (ok / partial / unreadable,
+  what needs visual reading) + SQLite FTS5 trigram index;
+  `scripts/kb-search.py` (substring fallback for 1–2 character Japanese
+  queries); `/brse-toolkit:ingest`.
+- **Second agent and machine translation** — `scripts/ask-agent.py` (codex
+  read-only / gemini / OpenAI API, falls back to "none" with reasons) and
+  `scripts/mt.py` (DeepL / OpenAI).
+- **New skills** — `review-gate` (mandatory final check: request vs result,
+  feedback ledger, coverage, evidence, office-diff + render, independent
+  review, lint), `diagram` (draw.io from existing diagrams, export and
+  inspect), `estimation` (logic chain from inputs to every number,
+  preconditions / not-included rules, verified totals).
+- **`scripts/office-diff.py`** — before/after comparison of xlsx / docx /
+  pptx: changed values, cells whose formatting changed, merges, images.
+- **Personal library** — `scripts/library.py` + `/brse-toolkit:library` for
+  approved deliverables reused across projects.
+- Workspace `layout_version`; session start warns about 1.x or outdated
+  layouts.
+- GitHub Actions: pytest on ubuntu / macos / windows.
+
 ### Changed
+- Every skill ends with `review-gate`; analytical skills ingest sources
+  first and use the manifest as their file list; `jp-vi-translate` uses the
+  MT base layer and a second-agent back-check; `image-analyze` and
+  `detail-design-jp` rewritten with steps and checks.
 - Nine skills rewritten with explicit steps, output formats and checks
   (brainstorm-brse, research-jp-tech, proposal-gen, report-gen, qa-tone-brse,
   code-to-business, cross-check, excel-analyze, jp-vi-translate). Highlights:

@@ -78,3 +78,7 @@ is no second copy.
 - Every sheet is in the inventory as read or not read (with reason).
 - No formatting meaning applied without a confirmed convention.
 - Run `verify-output`.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

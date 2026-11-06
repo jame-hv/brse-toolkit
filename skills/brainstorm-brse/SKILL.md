@@ -66,3 +66,7 @@ Keep it under ~25 lines unless the user asks for depth.
   *Unverified*.
 - The options are genuinely different (a reader could choose between them).
 - Run `verify-output`.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

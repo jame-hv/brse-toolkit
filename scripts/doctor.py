@@ -6,32 +6,30 @@ Prints {"os", "python", "venv", "tools": [...], "python_packages": [...], "confi
 A tool is found via `tools.paths.<id>` in the merged config, then PATH, then the
 manifest's per-OS extra_paths. Read-only: never installs anything.
 """
+import sys
+
+sys.dont_write_bytecode = True
 import importlib.util
 import json
-import os
 import shutil
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+import brse_common
+
+ROOT = brse_common.ROOT
 MANIFEST = ROOT / "config" / "dependencies.json"
 OS_NAME = {"win32": "windows", "darwin": "darwin"}.get(sys.platform, "linux")
 
 
 def load_config(start: Path):
-    spec = importlib.util.spec_from_file_location("brse_config", ROOT / "scripts" / "brse-config.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
     try:
-        return mod.resolve(start)["config"], None
+        return brse_common.resolve(start)["config"], None
     except ValueError as e:
         return {}, str(e)
 
 
 def venv_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") if OS_NAME == "windows" else None
-    base = Path(base) if base else Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
-    return base / "brse-toolkit" / "venv"
+    return brse_common.data_dir() / "venv"
 
 
 def venv_python(venv: Path) -> Path:

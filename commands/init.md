@@ -52,7 +52,7 @@ Don't guess answers the user didn't give — leave the default and say so.
 ├── config.json
 ├── .gitignore            # contents: "memory/short/" and "knowledge/index.sqlite"
 ├── memory/
-│   ├── long/             # parties.md, glossary.md, conventions.md, decisions-log.md
+│   ├── long/             # parties.md, glossary.md, conventions.md, decisions-log.md, feedback-log.md
 │   └── short/            # session logs written by the plugin's hooks
 └── knowledge/
     └── docs/             # source documents converted to Markdown
@@ -63,6 +63,7 @@ inherited from the plugin defaults and the user's own config):
 
 ```json
 {
+  "layout_version": 2,
   "project": {
     "name": "<answer 1>",
     "client_language": "<answer 2>",
@@ -81,7 +82,7 @@ inherited from the plugin defaults and the user's own config):
 Never write an API key or any other secret into this file — providers are
 configured by environment-variable name only (see the README).
 
-The four `memory/long/` files start empty except for their title and schema
+The `memory/long/` files start empty except for their title and schema
 (examples are placeholders, never real data):
 
 `parties.md`:
@@ -120,6 +121,17 @@ Entry schema:
   Status: active
 ```
 
+`feedback-log.md` (filled by `/brse-toolkit:memory-review`):
+```
+<!-- last-review: never -->
+# Feedback log — corrections the user gave, by category
+
+Entry schema:
+- <YYYY-MM-DD> | <category> | <correction, one line> | rule: <conventions entry it produced, or none>
+Categories: misread-request, did-not-read-source, unsupported-claim, out-of-scope,
+ignored-feedback, format-layout, writing-style, translation, wrong-content, other
+```
+
 An entry that gets replaced is never deleted: set its `status` to
 `superseded by <date>` and add the new entry below it.
 
@@ -149,7 +161,8 @@ Client documents: <client language> · Team: <team language> · Reply to the use
 | <one row per deliverable from answer 5> | <client / internal> | <xlsx / pptx / docx / md> | <template path, or "none yet"> | <language> |
 
 ## Where things are
-- Client sources: <source folders>. Converted, searchable copies: `.brse/knowledge/docs/`.
+- Client sources: <source folders>. Converted, searchable copies: `.brse/knowledge/docs/`
+  (refresh with `/brse-toolkit:ingest`; the manifest lists what could not be read as text).
 - Client templates: <template folders>.
 - Settled facts: `.brse/memory/long/` — parties, glossary, conventions, decisions-log. Read before any work.
 - Recent sessions: `.brse/memory/short/`.
@@ -171,6 +184,9 @@ Client documents: <client language> · Team: <team language> · Reply to the use
 | research a technology / regulation | `brse-toolkit:research-jp-tech` |
 | make a proposal | `brse-toolkit:proposal-gen` |
 | produce a report / slide / Word file in the client's format | `brse-toolkit:report-gen` |
+| create, revise or check an estimate (見積書, 前提条件) | `brse-toolkit:estimation` |
+| draw an architecture / flow / transition diagram | `brse-toolkit:diagram` |
+| hand work back (always, last step) | `brse-toolkit:review-gate` |
 Several apply → name them in the restatement (rule 1) and chain them.
 
 ## Rules — each one is visible in the reply
@@ -191,10 +207,11 @@ Several apply → name them in the restatement (rule 1) and chain them.
 5. **Feedback ledger.** Keep a numbered list of every correction the user gave
    in this task. Before handing back, go through it and mark each item done
    or not done in the reply.
-6. **Check before handoff.** Verify with the plugin's own scripts or tools and
-   a second agent when `/brse-toolkit:doctor` shows one — never with a script
-   written on the spot to "prove" the work. Office files: render to an image
-   and look at it before saying it's done.
+6. **Check before handoff.** Run `brse-toolkit:review-gate` before every
+   handoff: plugin scripts (`office-diff.py`, lint) and an independent second
+   agent (`ask-agent.py`) — never a script written on the spot to "prove" the
+   work. Office files: render to an image and look at it before saying it's
+   done.
 7. **Client files.** Never overwrite an original — write a copy in
    <outputs folder>, keep its formatting (fonts, colours, merged cells,
    images, shapes). Prefer the office CLI the config lists over rewriting the
@@ -224,4 +241,6 @@ version).
 
 Tell the user, in the reply language: what was created, which answers were
 left at their defaults, and that `/brse-toolkit:doctor` shows which optional
-tools (second agent, machine translation, draw.io) are available.
+tools (second agent, machine translation, draw.io) are available. Then offer
+to run `/brse-toolkit:ingest` now so the source documents become searchable
+(run it only on a yes).

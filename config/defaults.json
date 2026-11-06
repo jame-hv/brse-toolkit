@@ -1,4 +1,5 @@
 {
+  "layout_version": 2,
   "project": {
     "name": "",
     "client_language": "ja",
@@ -19,7 +20,7 @@
     "back_check": "second-agent"
   },
   "providers": {
-    "openai": { "api_key_env": "OPENAI_API_KEY" },
+    "openai": { "api_key_env": "OPENAI_API_KEY", "model": "" },
     "deepl": { "api_key_env": "DEEPL_API_KEY" }
   },
   "review": {

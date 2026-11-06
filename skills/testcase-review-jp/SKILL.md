@@ -41,7 +41,9 @@ Read the Detail Design file with `excel-analyze`
 (`${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py`),
 covering every sheet in scope (Japanese SI detail designs typically split into
 screen/field spec, event/button logic, server logic, return-value tables, and
-a screen-image sheet — read all of them, not just one).
+a screen-image sheet — read all of them, not just one). When the workspace
+has a knowledge index, run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/kb-ingest.py`
+first and check the manifest so no design sheet is missed.
 
 Turn the design into a list of identifiable rules, each tagged with its
 source location (sheet + cell/section): field specs (required/optional, type,
@@ -103,3 +105,7 @@ the draft response before sending. Every reported row needs a source tag for
 **both** sides being compared, in `config.style.source_tag` or inline as
 `Sheet!A12`: the test case cell and the design cell (or an explicit
 "not covered by design" note, in the reply language, when there is none).
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.

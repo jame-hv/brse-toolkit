@@ -12,7 +12,7 @@ Pass only if ALL of these hold, judged from the tool calls and the final reply:
 3. `.brse/memory/long/` contains parties, glossary, conventions and
    decisions-log files holding only a title and schema — no invented terms,
    parties or decisions.
-4. `.brse/memory/short/` and `.brse/knowledge/docs/` exist, and `.brse/.gitignore`
+4. `.brse/memory/short/` and `.brse/knowledge/docs/` exist, `config.json` has `"layout_version": 2`, `memory/long/` also has `feedback-log.md`, and `.brse/.gitignore`
    ignores `memory/short/` and `knowledge/index.sqlite`.
 5. `CLAUDE.md` contains a block between `<!-- brse-toolkit:start -->` and
    `<!-- brse-toolkit:end -->` that mentions sample-shop and `input/`.

@@ -38,6 +38,16 @@ template.
    and sheets, images and diagrams included. Build a requirements list
    `R-01, R-02, …`, each with its source ref. Read the estimate, if one
    exists: scope, effort, schedule and price in the proposal come from it.
+   When the workspace has a knowledge index, run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/kb-ingest.py` first and use
+   `.brse/knowledge/manifest.json` as the file list (its `partial` /
+   `unreadable` entries are exactly what still needs visual reading or is
+   missing); `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/kb-search.py "<term>"` locates
+   candidates across all documents.
+   Also check the personal library
+   (`<py> ${CLAUDE_PLUGIN_ROOT}/scripts/library.py list --kind proposal`) for an
+   approved proposal to reuse as a structure reference — ask before reusing
+   anything from a different client.
 3. **Outline before writing**: section → slide titles → which `R-` ids each
    answers. Deck longer than ~5 slides → show the outline and get a yes first.
 4. **Write each slide**:
@@ -79,3 +89,7 @@ The file path, then:
 - Every slide image was looked at after rendering.
 - The user's corrections in this task are all applied (feedback ledger).
 - Run `verify-output` on both versions.
+
+## Handoff
+
+Finish with `review-gate` — it runs `verify-output` as its last step.
