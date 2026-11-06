@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.1.0 — 2026-11-06
+
+From real use on an estimate project, where the diagram of the current system
+and the analysis could not be understood by the reader.
+
+### Added
+- **Diagram acceptance criteria** — `drawio-tool.py check` (purpose, one view
+  per diagram, every quote verified in its source, computed or template
+  positions, readability, drawn changes equal to the change table) and
+  `drawio-tool.py reader-test` (a reviewer that sees only the image must say
+  who does what, in which order, and what changes).
+- **Diagrams built from sources** — `build` takes swimlane (lane = who,
+  column = step order) or automatic layered layout, never hand positions;
+  non-cloud kinds (system, device, equipment, actor, datastore, file, step…);
+  changed / new / removed / unconfirmed with a generated legend; every box and
+  arrow carries its source or is drawn as unconfirmed; a sources table next
+  to the diagram; icons can be taken from another diagram or template.
+- **Sentence-by-sentence wording review** — `wording.py` and the
+  `wording-reviewer` agent: every sentence or label read by someone who did
+  not write it, each problem returned with a rewrite; the project's rejected
+  sentences are the standard. Runs on deliverables and on replies.
+- **Reader criterion** in the rubric; rules for writing for the reader, no
+  abbreviations, keeping the document's own terms and separating "the
+  document says" from "my reading", no invented examples.
+- **API keys in the git-ignored `.brse/config.local.json`**, never printed;
+  a hook refuses tool calls that open key files.
+
 ## 2.0.0 — 2026-11-06
 
 **Breaking:** workspaces now live under `.brse/`, and `/brse-toolkit:init`
