@@ -3,8 +3,8 @@
 
 Usage: check-glossary.py <text_file> <glossary_md>
 Glossary entry format: - EN: <term> | VI: <term> | JP: <term> — <source note>
-(EN is a reference term, not a match target — jp-vi-translate only translates
-between VI and JP, so a match fires on the VI or JP form appearing in the text.)
+A match fires on any of the EN/VI/JP forms appearing in the text (EN as a whole
+word, case-insensitive). Empty or placeholder cells ("—", "-", "n/a") never match.
 """
 import json
 import re
@@ -42,9 +42,24 @@ def parse_glossary(path: str) -> list[dict]:
     return entries
 
 
+PLACEHOLDERS = {"", "—", "-", "–", "n/a", "na", "?"}
+
+
+def is_real(term: str) -> bool:
+    return term.strip().lower() not in PLACEHOLDERS
+
+
+def matches(entry: dict, text: str) -> bool:
+    if is_real(entry["vi"]) and entry["vi"] in text:
+        return True
+    if is_real(entry["jp"]) and entry["jp"] in text:
+        return True
+    en = entry["en"]
+    return is_real(en) and re.search(rf"(?<!\w){re.escape(en)}(?!\w)", text, re.I) is not None
+
+
 def check(text: str, glossary_path: str) -> list[dict]:
-    entries = parse_glossary(glossary_path)
-    return [e for e in entries if e["vi"] in text or e["jp"] in text]
+    return [e for e in parse_glossary(glossary_path) if matches(e, text)]
 
 
 def main() -> None:

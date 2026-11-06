@@ -5,10 +5,16 @@ description: Use this when the user needs to answer a question from a client or 
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Trigger
 
@@ -18,7 +24,7 @@ Excel Q&A list.
 
 ## Before answering — mandatory
 
-1. Read `memory/parties.md` — determine which party is asking, which party will
+1. Read `.brse/memory/long/parties.md` — determine which party is asking, which party will
    read the answer. Apply the relay model: do NOT carry the original question's
    pronouns verbatim into the answer if the reader is a different party — use
    the specific party's name, or the neutral Vietnamese "chúng tôi"/"quý vị".
@@ -36,24 +42,24 @@ Excel Q&A list.
   level, no email-style opening/closing.
 - **Excel Q&A list**: one notch more formal, since it's an official record.
 
-Both channels share `memory/glossary.md` for terminology — don't invent new
+Both channels share `.brse/memory/long/glossary.md` for terminology — don't invent new
 wording.
 
 ## Batch processing (multiple independent units)
 
 Multiple independent Q&A items in the same request (e.g. "answer these 10
 questions in this Q&A list") → dispatch in parallel (spec section 11), one
-subagent per question. Each subagent reads `memory/parties.md` +
-`memory/glossary.md` itself before drafting. The main agent aggregates results,
+subagent per question. Each subagent reads `.brse/memory/long/parties.md` +
+`.brse/memory/long/glossary.md` itself before drafting. The main agent aggregates results,
 dedupes newly-found terms/decisions, then asks the user once, and writes to the
-Q&A list file in one pass. **Subagents never write to `memory/` themselves.**
+Q&A list file in one pass. **Subagents never write to `.brse/memory/` themselves.**
 
 ## After answering
 
-- An uncertain answer → label it "chưa xác nhận được, cần hỏi khách" (the
+- An uncertain answer → label it as unconfirmed and needing to be asked to the client, in the reply language (the
   `verify-output` policy — run
   `${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on
   the draft before sending), don't guess at the client's intent.
-- If this answer is a new decision not yet in `memory/decisions-log.md` → ask
+- If this answer is a new decision not yet in `.brse/memory/long/decisions-log.md` → ask
   the user whether to save it, then write it immediately (don't delay — see the
   CLAUDE.md rule).

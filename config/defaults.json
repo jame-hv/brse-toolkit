@@ -1,0 +1,46 @@
+{
+  "project": {
+    "name": "",
+    "client_language": "ja",
+    "team_language": "vi",
+    "reply_language": "vi",
+    "deliverables": []
+  },
+  "paths": {
+    "sources": ["documents/"],
+    "templates": ["templates/"],
+    "outputs": "output/",
+    "latest_rule": "mtime"
+  },
+  "translation": {
+    "pairs": ["ja-vi", "vi-ja", "en-ja", "en-vi"],
+    "engine_order": ["deepl", "openai", "claude"],
+    "post_edit": true,
+    "back_check": "second-agent"
+  },
+  "providers": {
+    "openai": { "api_key_env": "OPENAI_API_KEY" },
+    "deepl": { "api_key_env": "DEEPL_API_KEY" }
+  },
+  "review": {
+    "second_agent": ["codex", "gemini", "claude-subagent"],
+    "required_before_handoff": true
+  },
+  "diagram": {
+    "engine_order": ["drawio", "mermaid"],
+    "base_on_existing": true
+  },
+  "style": {
+    "honorific_placeholders": "allow",
+    "source_tag": "(nguồn: {ref})",
+    "test_status_vocabulary": "from-sheet"
+  },
+  "safety": {
+    "write_to_copy": true,
+    "forbid_urls": []
+  },
+  "memory": {
+    "auto_log_session": true,
+    "short_retention_days": 30
+  }
+}

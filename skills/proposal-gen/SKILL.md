@@ -5,10 +5,16 @@ description: Use this when the user has requirements (spec, client emails, meeti
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Trigger
 
@@ -17,7 +23,7 @@ synthesized into a proposal.
 
 ## Mechanism (spec section 6.8)
 
-1. Extract requirements from the sources (`documents/`, `memory/decisions-log.md`)
+1. Extract requirements from the sources (`config.paths.sources`, `.brse/memory/long/decisions-log.md`)
    → group by category (scope, constraints, risks, estimates).
 2. Apply the relay model (spec section 2) at the CONTENT-writing step itself,
    not just at presentation:

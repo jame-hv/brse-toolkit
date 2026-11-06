@@ -5,26 +5,31 @@ description: Use this when the user needs to export a report as Excel, Slide, or
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Template source
 
-Check `templates/` (project directory — NOT the default template bundled in
+Check the `config.paths.templates` folders (project directory — NOT the default template bundled in
 `skills/detail-design-jp/templates/`, two different things, see spec section 7)
 — if the client has their own template, open it with
 `python-pptx`/`python-docx`/`openpyxl` and fill in the content, preserving the
 design. None yet → use a simple default template, and state it plainly in the
-response: "chưa có template khách, dùng mẫu mặc định — xác nhận format sau."
-(the literal note to give the user, in Vietnamese since that's the working
-language of the response).
+response (in `config.project.reply_language`): no client template yet, the
+default layout was used, the format needs confirming.
 
 ## Concrete flow (spec section 6.9)
 
 1. **Where the content comes from** — never invent it. Status report →
-   `memory/decisions-log.md` + `cross-check`/`code-to-business` if available.
+   `.brse/memory/long/decisions-log.md` + `cross-check`/`code-to-business` if available.
    Proposed solutions → chain through `proposal-gen` first. User provides
    content directly → use that content.
 2. **Determine the template** — as above.

@@ -6,9 +6,9 @@ import pathlib
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "lint-hedge-words.py"
 
 
-def run(text):
+def run(text, *args):
     result = subprocess.run(
-        [sys.executable, str(SCRIPT)],
+        [sys.executable, str(SCRIPT), *args],
         input=text, capture_output=True, text=True, encoding="utf-8",
     )
     return json.loads(result.stdout), result.returncode
@@ -94,18 +94,18 @@ def test_japanese_sentences_glued_without_space_are_split():
     source tag on the second sentence would have wrongly appeared to cover
     the first one too. Split correctly, each stands on its own — here
     neither has a real (nguồn: ...) tag, so both are correctly flagged."""
-    out, _ = run("特需区分は0または1です。ソースはE0025のバリデーション定義です。")
+    out, _ = run("区分は0または1です。ソースはS0002の定義です。")
     missing = {v["line"] for v in out["violations"] if v["type"] == "missing_source"}
-    assert missing == {"特需区分は0または1です。", "ソースはE0025のバリデーション定義です。"}
+    assert missing == {"区分は0または1です。", "ソースはS0002の定義です。"}
 
 
 def test_japanese_sentence_with_source_tag_is_not_flagged_by_neighbor():
     """The positive case for the split fix above: the first JP sentence is
     unsourced and must be flagged even though the very next sentence (glued,
     no space) does carry a real source tag — they must not be merged."""
-    out, _ = run("特需区分は0または1です。テスト対象はE0025です (nguồn: 3.テストケース, B180)。")
+    out, _ = run("区分は0または1です。対象はS0001です (nguồn: テスト仕様, B10)。")
     missing = {v["line"] for v in out["violations"] if v["type"] == "missing_source"}
-    assert missing == {"特需区分は0または1です。"}
+    assert missing == {"区分は0または1です。"}
 
 
 def test_multi_sentence_paragraph_flags_only_the_unsourced_sentence():
@@ -115,3 +115,26 @@ def test_multi_sentence_paragraph_flags_only_the_unsourced_sentence():
     missing = [v for v in out["violations"] if v["type"] == "missing_source"]
     assert len(missing) == 1
     assert missing[0]["line"].startswith("Trường A")
+
+
+def test_custom_source_tag_format_from_config():
+    out, code = run("- Field A is required (source: spec.xlsx, row 3).", "--source-tag", "(source: {ref})")
+    assert code == 0, out
+    out, code = run("- Field A is required (nguồn: spec.xlsx, row 3).", "--source-tag", "(source: {ref})")
+    assert code == 1
+
+
+def test_inline_file_line_and_sheet_cell_refs_count_as_sources():
+    out, code = run("- Hàm tính phí nằm ở src/fee.py:42.\n- Tổng tiền ghi ở Summary!D52.")
+    assert code == 0, out
+
+
+def test_bare_cell_address_is_not_a_source():
+    out, code = run("- Ô D52 ghi 1101.")
+    assert code == 1
+
+
+def test_source_tag_without_ref_placeholder_is_rejected():
+    out, code = run("- x.", "--source-tag", "(source)")
+    assert code == 2
+    assert "{ref}" in out["error"]

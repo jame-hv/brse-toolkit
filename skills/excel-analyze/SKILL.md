@@ -5,10 +5,16 @@ description: Use this when the user needs an Excel file read or checked — cell
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Mechanism (spec section 6.3)
 
@@ -17,7 +23,7 @@ Check whether `documents/`, `templates/`, `memory/` exist in the current project
    NOT vision.
 2. The meaning of formatting (what red means, what strikethrough means) — NEVER
    guess. First time a pattern is observed → ask for confirmation → write it to
-   `memory/conventions.md`. From then on apply it automatically, don't ask again.
+   `.brse/memory/long/conventions.md`. From then on apply it automatically, don't ask again.
    A cell with an unfamiliar, never-confirmed format → flag it separately, don't
    apply an existing convention to it.
 3. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-images.py <file.xlsx>
@@ -36,9 +42,9 @@ Check whether `documents/`, `templates/`, `memory/` exist in the current project
 
 Multiple independent Excel files/sheets need analysis in the same request →
 dispatch in parallel (spec section 11), one subagent per file. Each subagent
-reads `memory/conventions.md` + `memory/glossary.md` itself before analyzing.
+reads `.brse/memory/long/conventions.md` + `.brse/memory/long/glossary.md` itself before analyzing.
 The main agent aggregates results, dedupes newly-found formatting conventions,
-then asks the user once. **Subagents never write to `memory/` themselves.**
+then asks the user once. **Subagents never write to `.brse/memory/` themselves.**
 
 ## Shared with `qa-tone-brse`
 

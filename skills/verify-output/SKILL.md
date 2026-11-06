@@ -6,39 +6,32 @@ description: Mandatory before sending any conclusion — checks every claim has 
 ## Policy (spec section 6.1)
 
 1. List out every concluding sentence in the draft response.
-2. Every concluding sentence must carry a source tag: `(nguồn: file:dòng)` /
-   `(nguồn: sheet, ô)` / `(nguồn: spec trang X)` / `(nguồn: chat khách, <ngày>)`
-   for a requirement that only ever existed as a live chat message, never a
-   file. These are literal Vietnamese tags — do not translate or reformat
-   them, even though the response itself may be drafted in Vietnamese for the
-   reader. The lint script's regex only checks that a `(nguồn: ...)` wrapper
-   is present at all, not that its contents match one of these formats — the
-   discipline of picking a real, honest tag is on the author, the script
-   cannot verify a citation is genuine, only that a citation-shaped string
-   exists.
-3. Can't attach a source → write "chưa xác định được — cần hỏi khách" (not yet
-   determined — needs to be asked to the client), never state it as fact.
-   This exact phrase is not itself checked by the script — the script only
-   detects the absence of any source tag, not whether this specific fallback
-   wording was used once a source turned out to be missing.
-4. Banned hedge words in conclusions — checked literally by the script, do not
-   substitute English equivalents: "có lẽ" (maybe), "chắc là" (probably),
-   "hình như" (seems like), "có thể" (might/could). Not banned when the
-   sentence is itself a question back to the client.
-5. Deliverable content itself is Japanese (a DD document, a JP-target
-   translation) rather than the Vietnamese chat response — the script
-   recognizes Japanese sentence boundaries (。！？, no required trailing
-   space) and treats "？" as a question mark the same way as "?", but
-   `HEDGE_WORDS` and `SOURCE_TAG_RE` still only match the literal Vietnamese
-   strings above — a JP or EN sentence needs the literal `(nguồn: ...)` tag
-   embedded in it same as a VI one, there is no JP/EN equivalent tag the
-   script recognizes.
+2. Every concluding sentence must cite where it comes from, in one of two
+   forms:
+   - the workspace's source tag, `config.style.source_tag` from
+     `brse-config.py` (default `(nguồn: {ref})`), with a real ref inside:
+     a file + line, a sheet + cell, a spec page, or a chat message + date for
+     a requirement that only ever existed as a live message;
+   - an inline reference the reader can open directly: `path/file.ext:123`
+     or `Sheet!A12`. A bare cell address ("D52") is not enough — say which
+     sheet/file.
+   The script only checks that a citation-shaped string is present, not that
+   it is genuine — picking a real, honest ref is on the author.
+3. Can't attach a source → say plainly, in the reply language, that it is not
+   yet determined and needs to be asked to the client — never state it as fact.
+4. Banned hedge words in conclusions (checked literally by the script; the
+   current list is Vietnamese: "có lẽ", "chắc là", "hình như", "có thể"). Not
+   banned when the sentence is itself a question back to the client. For
+   JP/EN deliverables the same rule applies (no 〜かもしれない / "maybe" in a
+   conclusion) even though the script doesn't check those words yet.
+5. The script splits Japanese sentences on 。！？ and treats "？" as a
+   question mark, so JP deliverables are checked sentence by sentence.
 
 ## Mechanism
 
 Before sending the final answer, run:
 
-    python3 ${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py <draft.txt>
+    python3 ${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py <draft.txt> --source-tag "<config.style.source_tag>"
 
 Read the returned JSON. If `ok: false`, fix the draft until it's clean of
 violations before answering — never skip past the script's result.

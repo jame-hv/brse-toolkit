@@ -5,32 +5,38 @@ description: Use this when the user needs a Detail Design document written, foll
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Content sources (spec section 6.11)
 
 - Content comes from `code-to-business` (when writing a DD from existing code) +
-  `memory/decisions-log.md` (settled decisions/requirements) — NEVER invent
+  `.brse/memory/long/decisions-log.md` (settled decisions/requirements) — NEVER invent
   technical content.
 - Before trusting existing DD content (when updating an old DD) — check
-  `memory/decisions-log.md` first, the DD may not yet reflect the latest QA
+  `.brse/memory/long/decisions-log.md` first, the DD may not yet reflect the latest QA
   decision.
 
 ## Template
 
 Two different kinds of template, don't confuse them (spec section 7):
 
-- **Client's own template** — lives in `templates/` of the **current project
+- **Client's own template** — lives in the `config.paths.templates` folders of the **current project
   directory** (where Claude Code is running). If present → use it instead of the
   default framework, keep the structure the client is used to.
 - **Default framework bundled with the plugin** — if no client template exists,
   use `${CLAUDE_PLUGIN_ROOT}/skills/detail-design-jp/templates/detail-design-jp-template.md`
   (standard Japanese SI framework: 改訂履歴, 概要/目的, 処理概要+フロー, 画面レイアウト+項目定義,
   入力チェック, テーブル定義, エラー処理). This file is NOT in the project directory —
-  don't look for it under `templates/`.
+  don't look for it in the project's template folders.
 
 ## Completeness
 

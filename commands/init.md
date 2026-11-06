@@ -1,152 +1,172 @@
 ---
 name: init
-description: Scaffold documents/, templates/, memory/, CLAUDE.md for a new BrSE project in the current directory
+description: Set up a brse-toolkit workspace in the current directory — .brse/config.json, 3-tier memory, knowledge folder, and a project CLAUDE.md written from the user's answers
 ---
 
-Run the following steps in the current directory (the user's project directory, NOT the plugin repo):
+Run these steps in the current directory (the user's project directory, NOT the plugin repo).
 
-1. If `memory/` already exists — stop, ask the user whether to overwrite, do not continue on your own.
-2. Create the directories: `documents/`, `templates/`, `memory/`.
-3. Create `templates/README.md` with this content:
-   "Put the client's own report/slide/DD templates here (font, colors, column structure). The report-gen/detail-design-jp skills read files from this directory when present, and fall back to defaults otherwise."
-4. Create `documents/README.md` with this content:
-   "Put the client's source documents here (spec, DD, test case lists, emails, meeting notes) — this is the input side, read by cross-check/code-to-business/proposal-gen/etc. Commit each version the client sends as its own commit, so cross-check can diff old vs new via git history (see spec section 3) — don't overwrite a file in place without committing the prior version first."
-5. Create 4 files in `memory/`, each with only a title line + schema guidance (empty, no real data yet — except `glossary.md`, which is seeded with a common IT/BrSE starter vocabulary, see below). Written in English so the scaffolding is readable by any team; actual entries (translations, decisions, etc.) get filled in whatever language the project's deliverables use:
+## 1. Check what already exists
 
-   `memory/parties.md`:
-   ```
-   # Parties — who is who in this project
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read `workspace_root`:
+- equals the current directory → already initialized. Stop and ask whether to
+  re-run (re-asks the questions below and rewrites `.brse/config.json` and the
+  brse-toolkit block of `CLAUDE.md`; memory and knowledge are never touched).
+- is a parent directory → this folder is inside another workspace. Say which
+  one and ask whether to create a separate nested workspace here.
+- `error` → show it and stop; the existing config must be fixed first.
 
-   Entry schema:
-   - <Party name> — role: <client/vendor/our team/...> — default form of address: <not yet confirmed — use neutral pronouns (e.g. formal "we"/"you") until confirmed>
-   ```
+**1.x layout** (`memory/parties.md`, `memory/glossary.md`, ... at the project
+root): offer to migrate them into `.brse/memory/long/`. Only with the user's
+yes: move them (`git mv` when tracked), drop glossary lines whose source note
+is `khởi tạo mặc định` (they were starter terms, not project decisions — the
+starter list now lives in the plugin), keep every other line unchanged.
 
-   `memory/glossary.md`: entry schema `- EN: <term> | VI: <term> | JP: <term> — <source note, or "khởi tạo mặc định" for the seeded starter entries below>`. Matching in `check-glossary.py` fires on the VI or JP form (jp-vi-translate only translates between those two) — EN is carried along as the standard reference term. Seed the file with:
+## 2. Look before asking
 
-   ```
-   # Glossary EN-VI-JP
+List the top-level folders and the file types in each (names and counts only —
+don't read contents yet). Use this to propose defaults in the questions below
+(e.g. a folder full of client .xlsx/.pptx → likely a source folder; a folder
+named like "template" → template folder).
 
-   Entry schema:
-   - EN: <term> | VI: <term> | JP: <term> — <source note>
+## 3. Ask the user (one message, all questions together)
 
-   Starter vocabulary — common IT/BrSE terms, not client-specific decisions.
-   A project's own confirmed terms (from QA, spec, decisions-log) OVERRIDE
-   these on conflict — update the entry in place rather than adding a
-   duplicate, and change its source note to the real source once confirmed.
+1. Project name.
+2. Languages: the client's documents, the internal team, and the language
+   replies to the user should be in.
+3. Which folders hold source material from the client (propose from step 2).
+4. Which folders hold the client's templates, if any.
+5. The main deliverables for this project (e.g. estimate, proposal deck,
+   detail design, test spec, Q&A list).
 
-   - EN: screen | VI: màn hình | JP: 画面 — khởi tạo mặc định
-   - EN: field | VI: trường | JP: フィールド — khởi tạo mặc định
-   - EN: button | VI: nút | JP: ボタン — khởi tạo mặc định
-   - EN: requirement | VI: yêu cầu (nghiệp vụ) | JP: 要件 — khởi tạo mặc định
-   - EN: specification | VI: đặc tả | JP: 仕様 — khởi tạo mặc định
-   - EN: basic design | VI: thiết kế cơ bản | JP: 基本設計 — khởi tạo mặc định
-   - EN: detailed design | VI: thiết kế chi tiết | JP: 詳細設計 — khởi tạo mặc định
-   - EN: test case | VI: trường hợp kiểm thử | JP: テストケース — khởi tạo mặc định
-   - EN: unit test | VI: kiểm thử đơn vị | JP: 単体テスト — khởi tạo mặc định
-   - EN: integration test | VI: kiểm thử tích hợp | JP: 結合テスト — khởi tạo mặc định
-   - EN: regression test | VI: kiểm thử hồi quy | JP: 回帰テスト — khởi tạo mặc định
-   - EN: acceptance test | VI: kiểm thử nghiệm thu | JP: 受入テスト — khởi tạo mặc định
-   - EN: bug | VI: lỗi | JP: バグ — khởi tạo mặc định
-   - EN: defect | VI: lỗi (khiếm khuyết) | JP: 不具合 — khởi tạo mặc định
-   - EN: environment | VI: môi trường | JP: 環境 — khởi tạo mặc định
-   - EN: server | VI: máy chủ | JP: サーバ — khởi tạo mặc định
-   - EN: client | VI: máy khách | JP: クライアント — khởi tạo mặc định
-   - EN: database | VI: cơ sở dữ liệu | JP: データベース — khởi tạo mặc định
-   - EN: table | VI: bảng | JP: テーブル — khởi tạo mặc định
-   - EN: column | VI: cột | JP: カラム — khởi tạo mặc định
-   - EN: row | VI: dòng | JP: 行 — khởi tạo mặc định
-   - EN: deploy | VI: triển khai | JP: デプロイ — khởi tạo mặc định
-   - EN: release | VI: phát hành | JP: リリース — khởi tạo mặc định
-   - EN: version | VI: phiên bản | JP: バージョン — khởi tạo mặc định
-   - EN: validation | VI: kiểm tra hợp lệ | JP: バリデーション — khởi tạo mặc định
-   - EN: error message | VI: thông báo lỗi | JP: エラーメッセージ — khởi tạo mặc định
-   - EN: login | VI: đăng nhập | JP: ログイン — khởi tạo mặc định
-   - EN: logout | VI: đăng xuất | JP: ログアウト — khởi tạo mặc định
-   - EN: session | VI: phiên làm việc | JP: セッション — khởi tạo mặc định
-   - EN: user | VI: người dùng | JP: ユーザー — khởi tạo mặc định
-   - EN: permission | VI: quyền | JP: 権限 — khởi tạo mặc định
-   - EN: confirmation | VI: xác nhận | JP: 確認 — khởi tạo mặc định
-   - EN: update | VI: cập nhật | JP: 更新 — khởi tạo mặc định
-   - EN: create/register | VI: tạo mới | JP: 新規作成 — khởi tạo mặc định
-   - EN: delete | VI: xóa | JP: 削除 — khởi tạo mặc định
-   - EN: edit | VI: chỉnh sửa | JP: 編集 — khởi tạo mặc định
-   - EN: search | VI: tìm kiếm | JP: 検索 — khởi tạo mặc định
-   - EN: filter | VI: lọc | JP: 絞り込み — khởi tạo mặc định
-   - EN: sort | VI: sắp xếp | JP: 並び替え — khởi tạo mặc định
-   - EN: pagination | VI: phân trang | JP: ページング — khởi tạo mặc định
-   - EN: upload | VI: tải lên | JP: アップロード — khởi tạo mặc định
-   - EN: download | VI: tải xuống | JP: ダウンロード — khởi tạo mặc định
-   - EN: batch process | VI: xử lý theo lô | JP: バッチ処理 — khởi tạo mặc định
-   - EN: log | VI: nhật ký | JP: ログ — khởi tạo mặc định
-   - EN: backup | VI: sao lưu | JP: バックアップ — khởi tạo mặc định
-   - EN: security | VI: bảo mật | JP: セキュリティ — khởi tạo mặc định
-   - EN: authentication | VI: xác thực | JP: 認証 — khởi tạo mặc định
-   - EN: authorization | VI: phân quyền | JP: 認可 — khởi tạo mặc định
-   - EN: encryption | VI: mã hóa | JP: 暗号化 — khởi tạo mặc định
-   - EN: interface | VI: giao diện | JP: インターフェース — khởi tạo mặc định
-   - EN: function | VI: chức năng | JP: 機能 — khởi tạo mặc định
-   - EN: performance | VI: hiệu năng | JP: パフォーマンス — khởi tạo mặc định
-   - EN: workflow | VI: quy trình làm việc | JP: ワークフロー — khởi tạo mặc định
-   - EN: ticket | VI: phiếu yêu cầu | JP: チケット — khởi tạo mặc định
-   - EN: milestone | VI: mốc tiến độ | JP: マイルストーン — khởi tạo mặc định
-   - EN: deadline | VI: hạn chót | JP: 締切 — khởi tạo mặc định
-   ```
+Don't guess answers the user didn't give — leave the default and say so.
 
-   This is a common-vocabulary starting point, not an exhaustive industry glossary — extend it the same way as any other confirmed term (spec section 3): append an entry in the same `EN: ... | VI: ... | JP: ...` format when a new term gets settled.
+## 4. Create the workspace
 
-   `memory/conventions.md`:
-   ```
-   # Conventions — ad-hoc formatting conventions
+```
+.brse/
+├── config.json
+├── .gitignore            # contents: "memory/short/" and "knowledge/index.sqlite"
+├── memory/
+│   ├── long/             # parties.md, glossary.md, conventions.md, decisions-log.md
+│   └── short/            # session logs written by the plugin's hooks
+└── knowledge/
+    └── docs/             # source documents converted to Markdown
+```
 
-   Entry schema:
-   - <format description, e.g. "red text in Excel sheet X"> → <confirmed meaning> — source: <file>, confirmed <date>
-   ```
+`.brse/config.json` holds only what the user answered (everything else is
+inherited from the plugin defaults and the user's own config):
 
-   `memory/decisions-log.md`:
-   ```
-   # Decisions log — overlay on top of the official DD/spec
+```json
+{
+  "project": {
+    "name": "<answer 1>",
+    "client_language": "<answer 2>",
+    "team_language": "<answer 2>",
+    "reply_language": "<answer 2>",
+    "deliverables": ["<answer 5>"]
+  },
+  "paths": {
+    "sources": ["<answer 3>"],
+    "templates": ["<answer 4>"]
+  }
+}
+```
 
-   Entry schema:
-   - Decision: <content, state the scope of applicability clearly>
-     Source: QA #<id>, date <date>
-     Status in the official doc: <FULLY updated / PARTIALLY updated / NOT YET updated>
-   ```
+Never write an API key or any other secret into this file — providers are
+configured by environment-variable name only (see the README).
 
-6. Create `CLAUDE.md` at the project root (if it doesn't exist yet — if it does, append instead of overwriting):
+The four `memory/long/` files start empty except for their title and schema
+(examples are placeholders, never real data):
 
-   ```markdown
-   ## brse-toolkit memory
+`parties.md`:
+```
+# Parties — who is who in this project
 
-   Before running any brse-toolkit skill, read `memory/parties.md`,
-   `memory/glossary.md`, `memory/conventions.md`, `memory/decisions-log.md`.
+Entry schema:
+- <Party name> — role: <client/vendor/our team/...> — form of address: <confirmed form, or "not confirmed">
+  — source: <where this was confirmed>, <date> — status: active
+```
 
-   When new information surfaces (a term, a convention, a relationship between parties,
-   a QA decision) — confirm it with the user in one short sentence, then **write it to
-   the corresponding file immediately**, before moving on to other work. Don't batch
-   confirmations and write them all at the end of the session — the conversation can get
-   compacted, the file can't.
+`glossary.md`:
+```
+# Glossary EN-VI-JP
 
-   ## brse-toolkit — how to behave toward the end user
+Entry schema:
+- EN: <term> | VI: <term> | JP: <term> — <source note>, <date> — status: active
+```
 
-   This plugin's users are BrSEs, not developers — they can't read raw tool
-   calls/output.
+`conventions.md`:
+```
+# Conventions — formatting and writing conventions confirmed for this project
 
-   - Received a passage/file with no clear instruction on what to do with it (e.g. a
-     pasted Japanese passage with no accompanying instruction) — **stop and ask first**,
-     don't guess: "Translate, cross-check, or something else?". If it's a translation,
-     also ask for the target language (default JP→VI, but confirm if unclear). Only
-     pick a skill on your own once the intent is clearly stated.
-   - Before running a skill, subagent, or script — say one short plain-language sentence
-     describing what you're about to do (e.g. "Using the jp-vi-translate skill to
-     translate this passage", "Splitting 3 emails into 3 parallel subagents"). Don't
-     dump the raw tool call/command in front of the user.
-   ```
+Entry schema:
+- <what, e.g. "red text in sheet X"> → <confirmed meaning or rule> — source: <file or message>, <date> — status: active
+```
 
-   (This injected block configures the project's own `CLAUDE.md`, addressed to whoever
-   works in that project — keep it in English for the same reason as the memory files
-   above, regardless of what language the project's deliverables end up in.)
+`decisions-log.md`:
+```
+# Decisions log — overlay on top of the official spec/design
 
-7. Check whether the current directory is already a git repo (`git rev-parse --is-inside-work-tree`).
-   If not, run `git init` — the anti-staleness mechanism in `cross-check` needs git
-   history to retrieve prior versions when comparing documents.
-8. Report back to the user: done, list the files/directories just created.
+Entry schema:
+- Decision: <content, with its scope stated>
+  Source: <QA id / message / meeting>, <date>
+  Status in the official doc: <FULLY updated / PARTIALLY updated / NOT YET updated>
+  Status: active
+```
+
+An entry that gets replaced is never deleted: set its `status` to
+`superseded by <date>` and add the new entry below it.
+
+Then run `brse-config.py` again: `workspace_root` must be the current
+directory, with no `error` and no `warnings`. Fix the config before going on
+if not.
+
+## 5. Write the project CLAUDE.md
+
+Write the block below between the markers `<!-- brse-toolkit:start -->` and
+`<!-- brse-toolkit:end -->`. If `CLAUDE.md` exists, replace only an existing
+block between those markers (or append the block when there is none) — never
+touch the user's own content outside it. Fill every `<...>` from the answers;
+write the block in the reply language.
+
+```markdown
+<!-- brse-toolkit:start -->
+## Project
+<project name> — deliverables: <deliverables>.
+Client documents are in <client language>; the team works in <team language>;
+reply to the user in <reply language>.
+
+## Where things are
+- Client sources: <source folders> (converted copies: `.brse/knowledge/docs/`)
+- Client templates: <template folders>
+- Settled facts: `.brse/memory/long/` (parties, glossary, conventions, decisions)
+- Recent sessions: `.brse/memory/short/`
+- Settings: `.brse/config.json` (check with `/brse-toolkit:doctor`)
+
+## How to work here
+1. Before any non-trivial task, restate in one or two lines what will be
+   delivered, in which format, and what is out of scope. Unclear → ask first.
+2. Read the sources before concluding — the whole relevant document, not a
+   keyword search. Say which sources were read and which were not.
+3. Every conclusion cites its source. No source → say it is unconfirmed.
+4. Do only what was asked. Anything extra (a new approach, a PoC, a rename,
+   a deletion) → propose it and wait for a yes.
+5. Before handing work back, check it against the request and against every
+   piece of feedback given so far in this task.
+6. Never overwrite a client's original file — write to a copy.
+7. When the user confirms a term, convention, party, or decision, write it to
+   `.brse/memory/long/` right away, with its source and date.
+<!-- brse-toolkit:end -->
+```
+
+## 6. Git
+
+Check `git rev-parse --is-inside-work-tree`. Not a repo → run `git init`
+(`cross-check` uses git history to compare a document with its previous
+version).
+
+## 7. Report
+
+Tell the user, in the reply language: what was created, which answers were
+left at their defaults, and that `/brse-toolkit:doctor` shows which optional
+tools (second agent, machine translation, draw.io) are available.

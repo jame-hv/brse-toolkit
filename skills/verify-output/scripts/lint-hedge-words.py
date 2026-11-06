@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Lint a draft response for banned hedge words and unsourced bullet claims.
 
-Usage: lint-hedge-words.py [file]   (reads stdin if no file given)
+Usage: lint-hedge-words.py [file] [--source-tag FORMAT]   (reads stdin if no file)
+FORMAT is the workspace's `style.source_tag` from brse-config.py, e.g.
+"(nguồn: {ref})" (default) or "(source: {ref})". A claim also counts as sourced
+when it cites a reference inline: `path/file.ext:123` or `Sheet!A12`.
 Exit 0 if clean, 1 if any violation found.
 """
 import json
@@ -9,7 +12,22 @@ import re
 import sys
 
 HEDGE_WORDS = ["có lẽ", "chắc là", "hình như", "có thể"]
-SOURCE_TAG_RE = re.compile(r"\(nguồn:[^)]*\)")
+DEFAULT_SOURCE_TAG = "(nguồn: {ref})"
+INLINE_REF_RE = re.compile(r"[\w./-]+\.\w+:\d+|[^\s!(（]+![A-Z]{1,3}\d+")
+
+
+def tag_regex(fmt: str) -> re.Pattern:
+    if "{ref}" not in fmt:
+        raise ValueError("source tag format must contain {ref}")
+    before, after = fmt.split("{ref}", 1)
+    return re.compile(re.escape(before.strip()) + r"\s*.+?" + re.escape(after.strip()))
+
+
+SOURCE_TAG_RE = tag_regex(DEFAULT_SOURCE_TAG)
+
+
+def has_source(text: str, tag_re: re.Pattern) -> bool:
+    return bool(tag_re.search(text) or INLINE_REF_RE.search(text))
 QUESTION_MARKS = ("?", "？")  # deliverables in this toolkit are sometimes
 # Japanese (detail-design-jp output, jp-vi-translate's JP-target translations)
 # — the full-width "？" is the real question mark there, half-width "?" alone
@@ -51,8 +69,8 @@ BULLET_RE = re.compile(r"^([-*]\s|\d+[.)]\s)")
 STRUCTURAL_RE = re.compile(r"^([#|]|[-=*_ ]+$)")
 
 
-def lint_missing_sources(text: str) -> list[dict]:
-    """Flag concluding claims with no `(nguồn: ...)` tag.
+def lint_missing_sources(text: str, tag_re: re.Pattern = SOURCE_TAG_RE) -> list[dict]:
+    """Flag concluding claims with no source tag and no inline reference.
 
     Checks bullet/numbered list items as a whole line (original behavior),
     AND plain paragraph sentences — a claim doesn't stop being a claim just
@@ -72,25 +90,35 @@ def lint_missing_sources(text: str) -> list[dict]:
         if STRUCTURAL_RE.match(stripped):
             continue
         if BULLET_RE.match(stripped):
-            if not is_question(stripped) and not SOURCE_TAG_RE.search(stripped):
+            if not is_question(stripped) and not has_source(stripped, tag_re):
                 missing.append({"type": "missing_source", "line": stripped})
             continue
         for sentence in split_sentences(stripped):
             if is_question(sentence) or not sentence.endswith((".", "!", "。", "！")):
                 continue
-            if not SOURCE_TAG_RE.search(sentence):
+            if not has_source(sentence, tag_re):
                 missing.append({"type": "missing_source", "line": sentence})
     return missing
 
 
 def main() -> None:
-    if len(sys.argv) > 1:
-        with open(sys.argv[1], encoding="utf-8") as f:
+    args, fmt = sys.argv[1:], DEFAULT_SOURCE_TAG
+    if "--source-tag" in args:
+        i = args.index("--source-tag")
+        fmt = args[i + 1] if i + 1 < len(args) else ""
+        del args[i:i + 2]
+    try:
+        tag_re = tag_regex(fmt)
+    except ValueError as e:
+        print(json.dumps({"error": str(e)}))
+        sys.exit(2)
+    if args:
+        with open(args[0], encoding="utf-8") as f:
             text = f.read()
     else:
         text = sys.stdin.read()
 
-    violations = lint_hedge_words(text) + lint_missing_sources(text)
+    violations = lint_hedge_words(text) + lint_missing_sources(text, tag_re)
     print(json.dumps({"violations": violations, "ok": len(violations) == 0}, ensure_ascii=False, indent=2))
     sys.exit(1 if violations else 0)
 

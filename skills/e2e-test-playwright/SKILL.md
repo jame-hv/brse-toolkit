@@ -5,12 +5,16 @@ description: Use this when the user needs test cases actually executed against a
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
-
-Also confirm the Playwright MCP server's tools are actually loaded/available before starting — don't assume the tool names, check the real list first (exact names vary by server version, but the core set is normally `browser_navigate`, `browser_click`, `browser_type`, `browser_snapshot`, `browser_take_screenshot`, `browser_wait_for`, `browser_console_messages`, `browser_handle_dialog`).
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Trigger
 
@@ -21,12 +25,12 @@ not this skill — chain to it first when both are needed (see below).
 
 ## Step 0 — Scope and safety, before touching the browser
 
-1. Get the target URL/environment from the user or `memory/`. Get login
+1. Get the target URL/environment from the user or `.brse/memory/`. Get login
    credentials **from the user each run** (or from a project-local file the
    user points to that is already outside git, e.g. `.env`) — **never**
    invent, guess, or reuse credentials seen elsewhere, and **never write
-   credentials into `memory/*.md`, the result copy, or any evidence file**:
-   everything under `memory/` and `documents/` is project-persistent content
+   credentials into `.brse/memory/long/*.md`, the result copy, or any evidence file**:
+   everything under `.brse/` and the source/output folders is project-persistent content
    meant to be committed (spec section 3), so a credential written there
    becomes a secret leaked into git history. If the user wants credentials
    reusable across runs, tell them to keep it in an untracked file
@@ -66,7 +70,7 @@ For each row, in order:
    PENDING with the reason, never guess OK.
 4. **Capture evidence** — once the result of that row is known (OK/NG/
    PENDING/CANCEL), `browser_take_screenshot` **every** case, pass or fail,
-   saved as `documents/e2e-evidence/<run-id>/TC<No>_<result>.png` (e.g.
+   saved as `<config.paths.outputs>/e2e-evidence/<run-id>/TC<No>_<result>.png` (e.g.
    `TC059_NG.png`; create the directory if missing; `<run-id>` = date +
    screen/feature name, so repeat runs don't overwrite each other). The test
    case No. in the filename is the join key back to the row — it's what lets
@@ -81,9 +85,10 @@ don't force a workaround that isn't what the step actually says.
 
 ## Step 2 — Record the result
 
-Use the same OK/NG/PENDING/CANCEL vocabulary the test case sheet itself
-already tracks (総項目数/OK項目数/NG項目数/PENDING項目数/CANCEL項目数, when
-present) rather than inventing a new one.
+Use the result vocabulary the test case file itself defines (often a
+config/summary sheet with per-status counts) rather than inventing a new one
+— `config.style.test_status_vocabulary` is `"from-sheet"` by default. The file
+defines none → fall back to OK/NG/PENDING/CANCEL below and say so.
 
 - **OK**: expected result observed exactly as written.
 - **NG**: expected result NOT observed — the row's remark/備考 field must
@@ -124,4 +129,4 @@ don't make the user open the file to find out what failed.
 Apply `verify-output` — run
 `${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on
 the draft response. Every NG's description is a factual claim about observed
-behavior — cite the evidence file: `(nguồn: documents/e2e-evidence/<run-id>/TC<No>_NG.png)`.
+behavior — cite the evidence file: the configured `style.source_tag` with `<config.paths.outputs>/e2e-evidence/<run-id>/TC<No>_NG.png` as the ref.

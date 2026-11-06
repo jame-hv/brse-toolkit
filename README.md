@@ -32,8 +32,17 @@ Open Claude Code in the project (client/project) directory and run:
 
     /brse-toolkit:init
 
-This creates `documents/`, `templates/`, `memory/`, `CLAUDE.md` in the current
-directory, and runs `git init` if it isn't already a git repo. See
+It asks a few questions (project name, languages, source and template folders,
+deliverables), then creates `.brse/` (`config.json`, `memory/long/`,
+`memory/short/`, `knowledge/docs/`), writes a project block into `CLAUDE.md`,
+and runs `git init` if the folder isn't a git repo yet.
+
+Settings merge in three layers, later wins: plugin defaults
+(`config/defaults.json`) → your own `~/.config/brse-toolkit/config.json` →
+the workspace's `.brse/config.json`. Check the result with
+`python3 <plugin>/scripts/brse-config.py`. API keys never go in these files —
+set them as environment variables and name the variable in the config
+(e.g. `"api_key_env": "OPENAI_API_KEY"`). See
 `docs/superpowers/specs/2026-08-02-brse-toolkit-design.md` in the source repo
 for the full architecture.
 
@@ -53,3 +62,11 @@ installed as a plugin (see Install above), but it is **not** set when you
 just open this repo's own working directory in Claude Code to work on the
 toolkit itself. In that case, resolve `${CLAUDE_PLUGIN_ROOT}` as this repo's
 root manually — the paths are otherwise identical.
+
+## Tests
+
+    PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q     # script + plugin-structure tests, free, writes no cache
+    claude plugin validate .                           # manifest / skills / commands
+    claude plugin eval . --runs 1                      # behavior evals in evals/ — runs real agents, costs API usage
+
+`pytest.ini` turns off pytest's cache; `PYTHONDONTWRITEBYTECODE=1` stops `__pycache__/` folders from being written.

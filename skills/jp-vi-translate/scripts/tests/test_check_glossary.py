@@ -75,3 +75,17 @@ def test_missing_glossary_file_returns_empty_not_a_crash(tmp_path):
     out = json.loads(result.stdout)
     assert result.returncode == 0
     assert out["matches"] == []
+
+
+def test_placeholder_cells_never_match(tmp_path):
+    glossary = "- EN: Example Corp | VI: Công ty mẫu | JP: — — nguồn: QA #1\n"
+    out, _ = run("Tiêu đề — phụ đề", glossary, tmp_path)
+    assert out["matches"] == []
+
+
+def test_en_term_matches_as_whole_word_only(tmp_path):
+    glossary = "- EN: row | VI: dòng | JP: 行 — nguồn: test\n"
+    out, _ = run("Please throw it away", glossary, tmp_path)
+    assert out["matches"] == []
+    out, _ = run("Each Row has an ID", glossary, tmp_path)
+    assert [m["en"] for m in out["matches"]] == ["row"]

@@ -52,3 +52,5 @@ Thumbs.db
 htmlcov/
 
 test-document
+# Eval run output
+evals/results/

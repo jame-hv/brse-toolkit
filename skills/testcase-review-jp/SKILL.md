@@ -5,10 +5,16 @@ description: Use this when the user needs a test case list (単体テスト仕�
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Trigger
 
@@ -80,7 +86,7 @@ findings marked directly inside the Excel (comment or cell highlight),
 confirm first and always write to a copy, never the original.
 
 Test case and design both carry EN/JP columns and a row is only inconsistent
-in one language → check `memory/glossary.md` / use `jp-vi-translate` before
+in one language → check `.brse/memory/long/glossary.md` / use `jp-vi-translate` before
 concluding it's a translation slip rather than a logic slip.
 
 ## Before answering
@@ -88,5 +94,6 @@ concluding it's a translation slip rather than a logic slip.
 Apply `verify-output` — run
 `${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on
 the draft response before sending. Every reported row needs a source tag for
-**both** sides being compared: `(nguồn: <test case sheet>, <ô>)` and
-`(nguồn: <design sheet>, <ô>)` (or "design không đề cập" when there is none).
+**both** sides being compared, in `config.style.source_tag` or inline as
+`Sheet!A12`: the test case cell and the design cell (or an explicit
+"not covered by design" note, in the reply language, when there is none).

@@ -1,14 +1,20 @@
 ---
 name: cross-check
-description: Use this when the user wants two sources compared against each other (old vs new spec, code vs spec, Excel vs Excel), wants to know if memory/ entries went stale after a source document changed, or wants decisions-log.md reconciled against an updated DD.
+description: Use this when the user wants two sources compared against each other (old vs new spec, code vs spec, Excel vs Excel), wants to know if `.brse/memory/long/` entries went stale after a source document changed, or wants decisions-log.md reconciled against an updated DD.
 ---
 
 ## Before running
 
-Check whether `documents/`, `templates/`, `memory/` exist in the current project directory:
-- Only one secondary directory missing (`documents/` or `templates/`), `memory/` still present → create the empty directory yourself, use defaults for this run, report it in one clear line. No need to ask.
-- `memory/` missing → **do not** silently continue. Stop and ask: "This project hasn't been initialized (`memory/` is missing) — run `/brse-toolkit:init` first so things get saved for next time, or continue once without saving anything?"
-- Running as a subagent dispatched by a main agent (spec section 11 batch processing) → the main agent has already resolved this gate before dispatching — do not re-trigger the stop-and-ask, proceed directly. Only apply the check above when invoked directly with no parent agent to have already cleared it.
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+- `error` → show it to the user and stop; the config file must be fixed first.
+- `workspace_root` is null → the folder isn't initialized. Ask once: run
+  `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
+  next time) or continue once without saving. Running as a subagent dispatched
+  by a main agent → the parent already resolved this; proceed.
+- Otherwise use `config.paths` (`sources`, `templates`, `outputs` — relative to
+  `workspace_root`), `config.style`, `config.translation`, and the files in
+  `.brse/memory/long/`. Never assume a folder name the config doesn't list.
+- `warnings` not empty → mention them in one line (likely a typo in the config).
 
 ## Getting the old version of a document from git history (spec section 3)
 
@@ -17,10 +23,10 @@ version of a document does NOT live in a same-named file like
 `spec_v2.xlsx`/`spec_v3.xlsx`, it lives in the project directory's git history.
 Before diffing:
 
-1. Check the file's commit history: `git -C <project-dir> log --oneline -- documents/<relative-path>`.
+1. Check the file's commit history: `git -C <project-dir> log --oneline -- <source-folder>/<relative-path>`  (`<source-folder>` = one of `config.paths.sources`).
 2. Extract the old version to a temp file to diff against the current one:
 
-       git -C <project-dir> show <rev>:documents/<relative-path> > /tmp/<name>-old.<ext>
+       git -C <project-dir> show <rev>:<source-folder>/<relative-path> > <scratch-dir>/<name>-old.<ext>
 
    (`<rev>` = the commit hash/tag of the version the client sent previously; for
    binary files like `.xlsx`, remember to redirect to a file, don't read straight
@@ -61,25 +67,25 @@ output which mode is being used.
 
 Multiple independent source pairs need cross-checking in the same request (e.g.
 5 spec files all have a new version) → dispatch in parallel (spec section 11),
-one subagent per pair. Each subagent reads the relevant `memory/` entries itself
+one subagent per pair. Each subagent reads the relevant `.brse/memory/` entries itself
 before comparing. The main agent aggregates results, dedupes overlapping
 "needs re-verify" entries, then asks the user once. **Subagents never write to
-`memory/` themselves.**
+`.brse/memory/` themselves.**
 
-## Detecting stale `memory/` entries
+## Detecting stale `.brse/memory/` entries
 
-Every entry in `memory/*.md` has a source + version/date (spec section 3). When
+Every entry in `.brse/memory/long/*.md` has a source + version/date (spec section 3). When
 a diff finds a field that changed between the old/new version, search
-`memory/*.md` for any entry that cites that same field in the old version →
+`.brse/memory/long/*.md` for any entry that cites that same field in the old version →
 flag it "needs re-verify" right in the response, don't confidently keep using
 the old value.
 
 ## Reconciling `decisions-log.md` against the DD
 
-When the DD/spec is updated: for every entry in `memory/decisions-log.md` whose
-`Trạng thái trong doc chính thức` field is not `ĐÃ update đầy đủ` (these field
-names/values are literal Vietnamese, matching the template `/brse-toolkit:init`
-scaffolds — see `commands/init.md`), check whether the new DD now reflects that
+When the DD/spec is updated: for every entry in `.brse/memory/long/decisions-log.md` whose
+`Status in the official doc` is not `FULLY updated` and whose `Status` is
+`active` (field names as scaffolded by `/brse-toolkit:init`), check whether the
+new DD now reflects that
 decision — if it does, ask the user to confirm updating the entry's status; if
 not, keep flagging it.
 
