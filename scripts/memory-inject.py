@@ -40,7 +40,11 @@ def previous_session(root: Path, current: str):
     if not logs:
         return None
     text = logs[-1].read_text(encoding="utf-8")
-    return logs[-1].name, text.split("## Files written")[0].strip()
+    requests = text.split("## Files written")[0].strip()
+    reply = text.split("## Last reply", 1)[1].strip() if "## Last reply" in text else ""
+    if len(reply) > 800:
+        reply = reply[:800] + " …"
+    return logs[-1].name, f"{requests}\n\nOutcome (start of the last reply):\n{reply}" if reply else requests
 
 
 def main() -> None:

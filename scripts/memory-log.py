@@ -13,6 +13,7 @@ import sys
 
 sys.dont_write_bytecode = True
 import json
+import re
 import time
 from pathlib import Path
 
@@ -21,6 +22,16 @@ import brse_common
 SKIP_PREFIXES = ("<system-reminder", "<command-", "<local-command", "<task-notification",
                  "Caveat:", "[Request interrupted", "Base directory for this skill")
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
+COMMAND_RE = re.compile(r"<command-name>\s*(.*?)\s*</command-name>.*?(?:<command-args>(.*?)</command-args>|$)", re.S)
+
+
+def as_request(text: str):
+    """A typed slash command → "/name args"; injected or system text → None."""
+    m = COMMAND_RE.search(text)
+    if m:
+        return f"{m.group(1)} {(m.group(2) or '').strip()}".strip()
+    text = text.strip()
+    return text if text and not text.startswith(SKIP_PREFIXES) else None
 
 
 def parse(transcript: Path):
@@ -35,10 +46,10 @@ def parse(transcript: Path):
         if not isinstance(m, dict):
             continue
         c = m.get("content")
-        if d.get("type") == "user":
+        if d.get("type") == "user" and not d.get("isMeta"):  # isMeta = command/skill body injected by Claude Code
             texts = [c] if isinstance(c, str) else [
                 b.get("text", "") for b in c or [] if isinstance(b, dict) and b.get("type") == "text"]
-            requests += [t.strip() for t in texts if t.strip() and not t.strip().startswith(SKIP_PREFIXES)]
+            requests += [r for r in map(as_request, texts) if r]
         elif d.get("type") == "assistant" and isinstance(c, list):
             for b in c:
                 if not isinstance(b, dict):

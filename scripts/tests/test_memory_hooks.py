@@ -105,3 +105,31 @@ def test_feedback_stats_counts_and_filters(ws, tmp_path):
     assert out["unknown_categories"] == ["made-up-cat"] and out["by_category"]["other"] == 1
     recent = json.loads(run_script("feedback-stats.py", ws, "--days", "30", tmp=tmp_path).stdout)
     assert recent["total"] == 2
+
+
+def test_slash_command_is_logged_as_command_and_expansion_skipped(ws, tmp_path):
+    t = tmp_path / "t.jsonl"
+    lines = [
+        {"type": "user", "timestamp": "2026-03-03T09:00:00Z", "message": {"role": "user", "content":
+            "<command-message>brse-toolkit:ingest</command-message>\n<command-name>/brse-toolkit:ingest</command-name>\n"
+            "<command-args>only the new files</command-args>"}},
+        {"type": "user", "isMeta": True, "message": {"role": "user", "content": [
+            {"type": "text", "text": "Run these steps in the current directory ... (command body)"}]}},
+        {"type": "user", "isMeta": True, "message": {"role": "user", "content": [
+            {"type": "text", "text": "Base directory for this skill: /x/skills/cross-check ..."}]}},
+        {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Ingested 2 files."}]}},
+    ]
+    t.write_text("\n".join(json.dumps(l) for l in lines), encoding="utf-8")
+    run_script("memory-log.py", stdin=hook_input(ws, t), tmp=tmp_path)
+    text = (ws / ".brse" / "memory" / "short" / "2026-03-03-abcdef12.md").read_text(encoding="utf-8")
+    assert "1. /brse-toolkit:ingest only the new files" in text
+    assert "command body" not in text and "Base directory" not in text
+    assert "## Requests (1)" in text
+
+
+def test_inject_includes_outcome_of_previous_session(ws, tmp_path):
+    (ws / ".brse" / "memory" / "short" / "2026-03-01-11111111.md").write_text(
+        "# Session 11111111\n\n## Requests (1)\n1. Compare A and B\n\n## Files written\n(none)\n\n"
+        "## Last reply\nVerdict: 3 items compared, 1 differs (会員登録).\n", encoding="utf-8")
+    r = run_script("memory-inject.py", stdin=json.dumps({"cwd": str(ws), "session_id": "22222222"}), tmp=tmp_path)
+    assert "Compare A and B" in r.stdout and "1 differs (会員登録)" in r.stdout
