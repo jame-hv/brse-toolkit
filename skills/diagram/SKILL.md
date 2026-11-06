@@ -106,7 +106,7 @@ from the closest one, or from an existing diagram in the project's sources.
 | # | Criterion | Checked by |
 |---|---|---|
 | 1 | Purpose: the title says what question it answers; the model states `question` and `reader` | `check` |
-| 2 | One view per diagram: a system view (who connects to whom, what flows) **or** a business flow (who does what, in order) — never both | `check` |
+| 2 | One connected story: every box is linked to the rest through the arrows — no island of boxes standing apart (people, devices, systems and documents may all appear together) | `check` |
 | 3 | Correct: every box and arrow has a source whose quote really is in that document; unsourced ones are dashed | `check` (opens the documents) |
 | 4 | Complete: every system, person and step in the source section is on the diagram, or listed as left out with the reason | reviewer agent with the sources table and the documents |
 | 5 | Meaningful positions: computed (lanes = who, columns = order; or layered from the arrows) or taken from a template | `check` |

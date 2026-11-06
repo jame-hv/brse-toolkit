@@ -212,16 +212,20 @@ def test_check_passes_a_good_flow_against_its_change_table(tmp_path):
     assert out["criteria"]["8_reader_test"]["pass"] is None
 
 
-def test_check_fails_mixed_view_wrong_quote_and_mismatched_changes(tmp_path):
+def test_check_fails_disconnected_part_wrong_quote_and_mismatched_changes(tmp_path):
     workspace_with_source(tmp_path)
     model = json.loads(json.dumps(SWIM))
-    model["nodes"][1]["kind"] = "device"                                  # a device inside a business flow
+    model["nodes"][1]["kind"] = "device"                                  # devices inside a flow are fine
+    model["nodes"].append({"id": "x1", "kind": "system", "label": "管理端末", "lane": "wcs", "col": 3, "ref": REF})
+    model["nodes"].append({"id": "x2", "kind": "system", "label": "プリンタ", "lane": "wcs", "col": 4, "ref": REF})
+    model["edges"].append({"source": "x1", "target": "x2", "label": "印刷", "ref": REF})  # an island
     model["nodes"][0]["ref"] = {"file": "docs/spec.txt", "part": "", "quote": "存在しない文"}  # quote not in source
     build(tmp_path, model)
     (tmp_path / "chg.json").write_text(json.dumps([{"id": "s4", "status": "changed"}]))
     code, out = check(tmp_path, "--changes", tmp_path / "chg.json")
     c = out["criteria"]
-    assert code == 1 and not c["2_one_view"]["pass"] and not c["3_correct"]["pass"] and not c["7_changes"]["pass"]
+    assert code == 1 and not c["2_one_story"]["pass"] and not c["3_correct"]["pass"] and not c["7_changes"]["pass"]
+    assert c["2_one_story"]["detail"]["separate_parts"] == 2
     assert c["7_changes"]["detail"]["drawn_not_in_table"] == ["e3", "s5"]
 
 

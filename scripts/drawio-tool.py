@@ -662,11 +662,27 @@ def cmd_check(path, changes=None) -> dict:
     crit["1_purpose"] = {"pass": bool(model.get("brseQuestion")) and has_title,
                          "detail": {"question": model.get("brseQuestion"), "reader": model.get("brseReader"),
                                     "title": has_title}}
-    flow = sorted({n["kind"] for n in content if n["kind"] in FLOW_KINDS})
-    system = sorted({n["kind"] for n in content if n["kind"] in SYSTEM_KINDS})
-    crit["2_one_view"] = {"pass": not (flow and system),
-                          "detail": "mixes business-flow steps and system parts" if flow and system else
-                          ("business flow" if flow else "system view")}
+    # one connected story: every element reachable from every other through the arrows
+    ids = {n["id"] for n in content}
+    link = {i: set() for i in ids}
+    for e in edges:
+        if e["source"] in ids and e["target"] in ids:
+            link[e["source"]].add(e["target"])
+            link[e["target"]].add(e["source"])
+    parts, seen = [], set()
+    for start in ids:
+        if start in seen:
+            continue
+        comp, todo = set(), [start]
+        while todo:
+            x = todo.pop()
+            if x not in comp:
+                comp.add(x)
+                todo += list(link[x] - comp)
+        seen |= comp
+        parts.append(sorted(next(n["label"] or n["id"] for n in content if n["id"] == i) for i in comp))
+    crit["2_one_story"] = {"pass": len(parts) <= 1, "detail": {
+        "separate_parts": len(parts), "parts": parts if len(parts) > 1 else []}}
     claims_file = Path(str(path) + ".claims.json")
     sources_file = Path(str(path) + ".sources.md")
     if claims_file.is_file():
