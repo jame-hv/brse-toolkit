@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Mechanical language checks on a translated or written text.
 
-Usage: lang-lint.py <text_file> --lang ja|vi|en [--source-lang ja|vi|en]
+Usage: lang-lint.py <text_file | translations.json> --lang ja|vi|en [--source-lang ja|vi|en]
+A .json file of {id: text} (office-text.py's format) is checked unit by unit, and
+every finding carries its unit id.
 errors (exit 1):
   untranslated   characters of the source script left in the target text
                  (kana/kanji in vi/en output; Vietnamese letters in ja output)
@@ -88,7 +90,17 @@ def main() -> None:
     if not args or opts.get("--lang") not in ("ja", "vi", "en"):
         print(__doc__, file=sys.stderr)
         sys.exit(2)
-    findings = lint(Path(args[0]).read_text(encoding="utf-8"), opts["--lang"], opts.get("--source-lang"))
+    raw = Path(args[0]).read_text(encoding="utf-8")
+    if args[0].endswith(".json"):
+        findings = []
+        units = json.loads(raw)
+        for uid, text in units.items():
+            findings += [{"id": uid, **f} for f in lint(re.sub(r"⟦/?\d+⟧", "", text), opts["--lang"], opts.get("--source-lang"))]
+        style = lint("\n".join(units.values()), opts["--lang"], opts.get("--source-lang"))  # cross-unit style mix
+        findings += [f for f in style if f["rule"] in ("ja-style-mix", "ja-width-mix")
+                     and not any(g["rule"] == f["rule"] for g in findings)]
+    else:
+        findings = lint(raw, opts["--lang"], opts.get("--source-lang"))
     errors = [f for f in findings if f["severity"] == "error"]
     print(json.dumps({"errors": len(errors), "warnings": len(findings) - len(errors), "findings": findings},
                      ensure_ascii=False, indent=2))

@@ -6,6 +6,8 @@ Usage:
   drawio-tool.py template <name> <out.drawio>          copy one (e.g. cloud/aws/aws_6) as editable XML
   drawio-tool.py cells <file.drawio>                   list shapes/edges: id, label, kind, parent
   drawio-tool.py edit <file> <changes.json> <out>      relabel / delete / add / connect by id
+  drawio-tool.py kinds                                 node kinds available to `build`
+  drawio-tool.py build <model.json> <out.drawio>       build a diagram from a model when no template fits
   drawio-tool.py lint <file.drawio>                    orphans, dangling edges, overlaps, empty labels
   drawio-tool.py export <file.drawio> <out.png> [--layout NAME]   render with the draw.io CLI
 changes.json: {"set": {"<id>": "<new label>"}, "delete": ["<id>"],
@@ -295,6 +297,99 @@ def cmd_export(path, out, layout, config):
     return {"png": str(dst)}
 
 
+# ---------- build from a model (no hand-written XML) ----------
+_ICON = ("outlineConnect=0;fontColor=#232F3E;gradientColor={g};gradientDirection=north;fillColor={f};strokeColor=#ffffff;"
+         "dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=14;fontStyle=0;aspect=fixed;"
+         "shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.{r};labelBackgroundColor=#ffffff;")
+_GROUP = ("outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;shape=mxgraph.aws4.group;"
+          "grIcon=mxgraph.aws4.{gi};strokeColor={s};fillColor={fill};verticalAlign=top;align=left;spacingLeft=30;fontColor={s};"
+          "dashed={d};labelBackgroundColor=none;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;")
+_CLIENT = ("outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;"
+           "verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=14;fontStyle=0;aspect=fixed;"
+           "pointerEvents=1;shape=mxgraph.aws4.{r};labelBackgroundColor=#ffffff;")
+_CAT = {"compute": ("#F78E04", "#D05C17"), "network": ("#945DF2", "#5A30B5"), "database": ("#4D72F3", "#3334B9"),
+        "storage": ("#60A337", "#277116"), "integration": ("#F34482", "#BC1356"), "security": ("#F54749", "#C7131F"),
+        "management": ("#F34482", "#BC1356")}
+ICONS = {  # kind: (category, resIcon)
+    "ec2": ("compute", "ec2"), "lambda": ("compute", "lambda"), "ecs": ("compute", "ecs"), "fargate": ("compute", "fargate"),
+    "alb": ("network", "elastic_load_balancing"), "cloudfront": ("network", "cloudfront"), "route53": ("network", "route_53"),
+    "api_gateway": ("integration", "api_gateway"), "vpn": ("network", "site_to_site_vpn"),
+    "rds": ("database", "rds"), "aurora": ("database", "aurora"), "dynamodb": ("database", "dynamodb"),
+    "elasticache": ("database", "elasticache"),
+    "s3": ("storage", "s3"), "efs": ("storage", "elastic_file_system"),
+    "sqs": ("integration", "sqs"), "sns": ("integration", "sns"), "eventbridge": ("integration", "eventbridge"),
+    "waf": ("security", "waf"), "cognito": ("security", "cognito"), "secrets_manager": ("security", "secrets_manager"),
+    "cloudwatch": ("management", "cloudwatch_2"),
+}
+CLIENTS = {"pc": "client", "mobile": "mobile_client", "user": "user", "users": "users",
+           "server": "traditional_server", "office": "office_building"}
+GROUPS = {  # kind: (grIcon, stroke colour, dashed, fill)
+    "aws-cloud": ("group_aws_cloud_alt", "#232F3E", 0, "none"), "region": ("group_region", "#00A4A6", 1, "none"),
+    "vpc": ("group_vpc2", "#8C4FFF", 0, "none"), "public-subnet": ("group_security_group", "#7AA116", 0, "#F2F6E8"),
+    "private-subnet": ("group_security_group", "#00A4A6", 0, "#E6F6F7"),
+    "datacenter": ("group_corporate_data_center", "#7D8998", 0, "none"), "account": ("group_account", "#CD2264", 0, "none"),
+}
+PLAIN = {
+    "box": "rounded=1;whiteSpace=wrap;html=1;fontSize=14;strokeColor=#232F3E;fillColor=#FFFFFF;",
+    "todo": "rounded=1;whiteSpace=wrap;html=1;fontSize=14;dashed=1;strokeColor=#D05C17;fillColor=#FFF5EB;",
+    "note": "text;html=1;align=left;verticalAlign=middle;fontSize=14;whiteSpace=wrap;",
+    "title": "text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;",
+}
+EDGE_STYLE = ("edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;"
+              "strokeWidth=2;fontSize=13;labelBackgroundColor=#ffffff;")
+
+
+def node_style(kind: str):
+    """(style, default width, default height) for a node kind."""
+    if kind in ICONS:
+        g, f = _CAT[ICONS[kind][0]]
+        return _ICON.format(g=g, f=f, r=ICONS[kind][1]), 78, 78
+    if kind in CLIENTS:
+        return _CLIENT.format(r=CLIENTS[kind]), 78, 78
+    if kind in GROUPS:
+        gi, stroke, dashed, fill = GROUPS[kind]
+        return _GROUP.format(gi=gi, s=stroke, d=dashed, fill=fill), 400, 300
+    if kind in PLAIN:
+        return PLAIN[kind], (160 if kind in ("box", "todo") else 600), (60 if kind != "title" else 40)
+    raise ValueError(f"unknown kind {kind!r}; known: {', '.join(sorted({**ICONS, **CLIENTS, **GROUPS, **PLAIN}))}")
+
+
+def cmd_build(model: dict, out):
+    """model = {"name", "groups": [...], "nodes": [...], "edges": [...]};
+    groups/nodes: {id, kind, label, x, y, w?, h?}; edges: {source, target, label?, dashed?, points?: [[x, y]]}.
+    Coordinates are absolute; groups are drawn first so nodes sit on top of them."""
+    mx = ET.Element("mxfile")
+    d = ET.SubElement(mx, "diagram", name=model.get("name", "Page-1"))
+    m = ET.SubElement(d, "mxGraphModel", grid="0", page="1", background="#ffffff")
+    root = ET.SubElement(m, "root")
+    ET.SubElement(root, "mxCell", id="0")
+    ET.SubElement(root, "mxCell", id="1", parent="0")
+    seen = set()
+    for item in model.get("groups", []) + model.get("nodes", []):
+        if item["id"] in seen or item["id"] in ("0", "1"):
+            raise ValueError(f"duplicate or reserved id {item['id']!r}")
+        seen.add(item["id"])
+        style, w, h = node_style(item["kind"])
+        c = ET.SubElement(root, "mxCell", id=item["id"], value=item.get("label", ""), style=style, vertex="1", parent="1")
+        ET.SubElement(c, "mxGeometry", x=str(item.get("x", 0)), y=str(item.get("y", 0)),
+                      width=str(item.get("w", w)), height=str(item.get("h", h)), **{"as": "geometry"})
+    for i, e in enumerate(model.get("edges", [])):
+        for end in ("source", "target"):
+            if e[end] not in seen:
+                raise ValueError(f"edge {i}: unknown {end} {e[end]!r}")
+        style = EDGE_STYLE + ("dashed=1;" if e.get("dashed") else "")
+        c = ET.SubElement(root, "mxCell", id=e.get("id", f"e{i}"), value=e.get("label", ""), style=style,
+                          edge="1", parent="1", source=e["source"], target=e["target"])
+        g = ET.SubElement(c, "mxGeometry", relative="1", **{"as": "geometry"})
+        if e.get("points"):
+            arr = ET.SubElement(g, "Array", **{"as": "points"})
+            for x, y in e["points"]:
+                ET.SubElement(arr, "mxPoint", x=str(x), y=str(y))
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(ET.tostring(mx, encoding="unicode"), encoding="utf-8")
+    return {"file": str(out), "nodes": len(seen), "edges": len(model.get("edges", []))}
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args:
@@ -321,6 +416,10 @@ def main() -> None:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text(ET.tostring(doc, encoding="unicode"), encoding="utf-8")
                 out = {"template": name, "file": str(dest), "cells": len(list(cells(doc)))}
+        elif cmd == "kinds":
+            out = {"aws": sorted(ICONS), "clients": sorted(CLIENTS), "groups": sorted(GROUPS), "plain": sorted(PLAIN)}
+        elif cmd == "build":
+            out = cmd_build(json.loads(Path(args[1]).read_text(encoding="utf-8")), args[2])
         elif cmd == "cells":
             out = cmd_cells(args[1])
         elif cmd == "edit":

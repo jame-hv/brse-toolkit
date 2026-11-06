@@ -70,13 +70,23 @@ def text_diff(a: list, b: list) -> list:
             if not l.startswith(("---", "+++", "@@"))]
 
 
+def docx_texts(doc) -> dict:
+    """Every paragraph with text — body, tables, text boxes, headers, footers — by office-text's ids."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ot", Path(__file__).resolve().parent / "office-text.py")
+    ot = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ot)
+    return {uid: text for uid, _, _, text in ot.docx_paragraphs(doc)}
+
+
 def diff_docx(before: Path, after: Path) -> dict:
     import docx
     a, b = docx.Document(before), docx.Document(after)
-    pa = [p.text for p in a.paragraphs]
-    pb = [p.text for p in b.paragraphs]
-    out = {"paragraphs_before": len(pa), "paragraphs_after": len(pb),
-           "text_changes": capped(text_diff(pa, pb)),
+    ta, tb = docx_texts(a), docx_texts(b)
+    changes = [{"id": k, "before": ta.get(k), "after": tb.get(k)} for k in sorted(set(ta) | set(tb))
+               if ta.get(k) != tb.get(k)]
+    out = {"paragraphs_before": len(ta), "paragraphs_after": len(tb),
+           "text_changes": capped(changes),
            "tables_before": len(a.tables), "tables_after": len(b.tables),
            "images_before": len(a.inline_shapes), "images_after": len(b.inline_shapes)}
     out["identical_formatting"] = out["images_before"] == out["images_after"] and out["tables_before"] == out["tables_after"]

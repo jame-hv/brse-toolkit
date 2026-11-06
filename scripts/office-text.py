@@ -11,9 +11,12 @@ Covered: .docx body, tables, text boxes, headers, footers (every <w:p> in those
 parts); .pptx every text frame, table cell and speaker notes; .xlsx every
 non-formula string cell. Not touched: sheet names (formulas refer to them),
 formulas, numbers, fields' instruction codes.
-Formatting: the paragraph keeps the formatting of its first run; paragraphs whose
-runs had DIFFERENT formatting (e.g. one bold word) are listed under
-"mixed_formatting" so they get a visual check. .xlsx is written through the office
+Formatting: a paragraph whose runs carry different formatting (e.g. one bold
+word) is extracted with markers — 新本番環境は⟦1⟧AWS東京リージョン⟦/1⟧に構築する。 —
+and the translation must keep each ⟦n⟧…⟦/n⟧ pair around the matching words;
+apply rebuilds the runs so every part gets its original formatting back. Ids of
+such units are listed under "marked"; a translation that drops or invents a
+marker is reported under "marker_errors" and falls back to plain text. .xlsx is written through the office
 CLI when one is configured and its round-trip check passes; otherwise openpyxl, with
 a warning if the file holds drawings (openpyxl drops shapes and charts).
 Never writes over the input file.
@@ -21,14 +24,19 @@ Never writes over the input file.
 import sys
 
 sys.dont_write_bytecode = True
+import copy
 import importlib.util
 import json
+import re
 import zipfile
 from pathlib import Path
 
 import brse_common
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+MARK_RE = re.compile(r"⟦(\d+)⟧(.*?)⟦/\1⟧", re.S)
+VOLATILE_RPR = ("lang", "altLang", "dirty", "err", "noProof")
 
 
 def office_module():
@@ -36,6 +44,88 @@ def office_module():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+# ---------- runs with mixed formatting ----------
+def fmt_key(run, rpr_tag):
+    rpr = run.find(rpr_tag)
+    if rpr is None:
+        return b""
+    rpr = copy.deepcopy(rpr)
+    for k in VOLATILE_RPR:
+        rpr.attrib.pop(k, None)
+    from lxml import etree
+    return etree.tostring(rpr)
+
+
+def group_runs(runs, rpr_tag):
+    """Consecutive runs with the same formatting → [(fmt, [runs])]."""
+    groups = []
+    for r in runs:
+        k = fmt_key(r, rpr_tag)
+        if groups and groups[-1][0] == k:
+            groups[-1][1].append(r)
+        else:
+            groups.append((k, [r]))
+    return groups
+
+
+def marked_text(groups, t_tag):
+    """Text with ⟦n⟧…⟦/n⟧ around every group whose formatting differs from the first."""
+    base = groups[0][0]
+    out = []
+    for i, (k, rs) in enumerate(groups):
+        text = "".join(t.text or "" for r in rs for t in r.iter(t_tag))
+        out.append(text if k == base or not text else f"⟦{i}⟧{text}⟦/{i}⟧")
+    return "".join(out)
+
+
+def segments(text, n_groups):
+    """'a⟦2⟧b⟦/2⟧c' → [(0,'a'), (2,'b'), (0,'c')]; None when markers are unusable."""
+    segs, pos = [], 0
+    for m in MARK_RE.finditer(text):
+        if m.start() > pos:
+            segs.append((0, text[pos:m.start()]))
+        idx = int(m.group(1))
+        if not 0 < idx < n_groups:
+            return None
+        segs.append((idx, m.group(2)))
+        pos = m.end()
+    if pos < len(text):
+        segs.append((0, text[pos:]))
+    if "⟦" in "".join(t for _, t in segs):
+        return None
+    return segs
+
+
+def write_runs(runs, groups, text, t_tag):
+    """Put `text` into the paragraph's runs; with markers, rebuild runs per segment."""
+    segs = segments(text, len(groups)) if len(groups) > 1 else None
+    first = runs[0]
+    parent = first.getparent()
+    if segs is None or any(r.getparent() is not parent for r in runs):  # nested runs (hyperlinks): plain text
+        clean = MARK_RE.sub(lambda m: m.group(2), text)
+        for i, r in enumerate(runs):
+            for j, t in enumerate(r.iter(t_tag)):
+                t.text = clean if i == 0 and j == 0 else ""
+        return segs is not None or len(groups) == 1
+    at = parent.index(first)
+    new_runs = []
+    for idx, seg in segs:
+        if not seg:
+            continue
+        r = copy.deepcopy(groups[idx][1][0])
+        ts = list(r.iter(t_tag))
+        for t in ts[1:]:
+            t.getparent().remove(t)
+        ts[0].text = seg
+        ts[0].set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+        new_runs.append(r)
+    for r in runs:
+        parent.remove(r)
+    for k, r in enumerate(new_runs):
+        parent.insert(at + k, r)
+    return True
 
 
 # ---------- docx ----------
@@ -64,44 +154,29 @@ def docx_paragraphs(doc):
                 yield f"{name}#p{n}", p, runs, text
 
 
-def run_format(r):
-    rpr = r.find(W + "rPr")
-    return b"" if rpr is None else __import__("lxml.etree", fromlist=["tostring"]).tostring(rpr)
-
-
 def extract_docx(path):
     import docx
-    doc = docx.Document(path)
-    units, mixed = [], []
-    for uid, _, runs, text in docx_paragraphs(doc):
-        units.append({"id": uid, "text": text})
-        if len({run_format(r) for r in runs}) > 1:
-            mixed.append(uid)
-    return units, mixed
-
-
-def set_runs_text(runs, text, t_tag):
-    """First run gets the whole text; the other runs are emptied (their formatting stays harmlessly)."""
-    first = True
-    for r in runs:
-        ts = list(r.iter(t_tag))
-        for i, t in enumerate(ts):
-            t.text = text if first and i == 0 else ""
-            if first and i == 0:
-                t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-        first = False
+    units, marked = [], []
+    for uid, _, runs, text in docx_paragraphs(docx.Document(path)):
+        groups = group_runs(runs, W + "rPr")
+        t = marked_text(groups, W + "t") if len(groups) > 1 else text
+        units.append({"id": uid, "text": t})
+        if t != text:
+            marked.append(uid)
+    return units, marked
 
 
 def apply_docx(path, tr, out):
     import docx
     doc = docx.Document(path)
-    applied = []
+    applied, errors = [], []
     for uid, _, runs, _ in docx_paragraphs(doc):
         if uid in tr:
-            set_runs_text(runs, tr[uid], W + "t")
+            if not write_runs(runs, group_runs(runs, W + "rPr"), tr[uid], W + "t"):
+                errors.append(uid)
             applied.append(uid)
     doc.save(out)
-    return applied, None
+    return applied, errors
 
 
 # ---------- pptx ----------
@@ -123,30 +198,35 @@ def pptx_paragraphs(prs):
                     yield f"{prefix}/p{pi}", p
 
 
+def pptx_runs(p):
+    return [r for r in p._p.iter(A + "r") if r.find(A + "t") is not None]
+
+
 def extract_pptx(path):
     from pptx import Presentation
-    units, mixed = [], []
+    units, marked = [], []
     for uid, p in pptx_paragraphs(Presentation(path)):
-        units.append({"id": uid, "text": p.text})
-        fmts = {(r.font.bold, r.font.italic, r.font.size, str(r.font.color.rgb if r.font.color and r.font.color.type else None))
-                for r in p.runs}
-        if len(fmts) > 1:
-            mixed.append(uid)
-    return units, mixed
+        runs = pptx_runs(p)
+        groups = group_runs(runs, A + "rPr") if runs else []
+        t = marked_text(groups, A + "t") if len(groups) > 1 else p.text
+        units.append({"id": uid, "text": t})
+        if t != p.text:
+            marked.append(uid)
+    return units, marked
 
 
 def apply_pptx(path, tr, out):
     from pptx import Presentation
     prs = Presentation(path)
-    applied = []
+    applied, errors = [], []
     for uid, p in pptx_paragraphs(prs):
-        if uid in tr and p.runs:
-            p.runs[0].text = tr[uid]
-            for r in p.runs[1:]:
-                r.text = ""
+        runs = pptx_runs(p)
+        if uid in tr and runs:
+            if not write_runs(runs, group_runs(runs, A + "rPr"), tr[uid], A + "t"):
+                errors.append(uid)
             applied.append(uid)
     prs.save(out)
-    return applied, None
+    return applied, errors
 
 
 # ---------- xlsx ----------
@@ -161,7 +241,7 @@ def xlsx_cells(wb):
 def extract_xlsx(path):
     import openpyxl
     wb = openpyxl.load_workbook(path)
-    return [{"id": uid, "text": c.value} for uid, _, c in xlsx_cells(wb)], []
+    return [{"id": uid, "text": c.value} for uid, _, c in xlsx_cells(wb)], []  # cells: one format each
 
 
 def has_drawings(path) -> bool:
@@ -228,7 +308,7 @@ def main() -> None:
         dup = {}
         for u in units:
             dup.setdefault(u["text"], []).append(u["id"])
-        print(json.dumps({"file": str(path), "units": units, "mixed_formatting": mixed,
+        print(json.dumps({"file": str(path), "units": units, "marked": mixed,
                           "duplicates": {t: ids for t, ids in dup.items() if len(ids) > 1},
                           "parts": parts(units, max_chars),
                           "total_chars": sum(len(u["text"]) for u in units)}, ensure_ascii=False, indent=2))
@@ -243,12 +323,13 @@ def main() -> None:
     unknown = sorted(set(tr) - known)
     tr = {k: v for k, v in tr.items() if k in known}
     out.parent.mkdir(parents=True, exist_ok=True)
+    errors, note = [], None
     if ext in (".xlsx", ".xlsm"):
         applied, note = apply_xlsx(path, tr, out, config)
     else:
-        applied, note = (apply_docx if ext == ".docx" else apply_pptx)(path, tr, out)
+        applied, errors = (apply_docx if ext == ".docx" else apply_pptx)(path, tr, out)
     print(json.dumps({"out": str(out), "applied": len(applied), "untranslated": sorted(known - set(applied)),
-                      "unknown_ids": unknown, "note": note}, ensure_ascii=False, indent=2))
+                      "unknown_ids": unknown, "marker_errors": errors, "note": note}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

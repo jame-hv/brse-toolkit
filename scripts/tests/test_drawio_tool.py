@@ -78,3 +78,29 @@ def test_edit_relabels_deletes_group_with_contents_and_connects(tmp_path):
     cells = {c["id"]: c for c in json.loads(run_script("drawio-tool.py", "cells", tmp_path / "o.drawio", tmp=tmp_path).stdout)}
     assert cells["app"]["label"] == "Laravel app" and cells["db"]["label"] == "RDS"
     assert any(c.get("source") == "app" and c.get("target") == "db" for c in cells.values())
+
+
+def test_build_from_model_then_lint_clean(tmp_path):
+    model = {"name": "arch", "groups": [{"id": "cloud", "kind": "aws-cloud", "label": "AWS", "x": 200, "y": 0, "w": 600, "h": 300}],
+             "nodes": [{"id": "pc", "kind": "pc", "label": "店舗PC", "x": 20, "y": 100},
+                       {"id": "alb", "kind": "alb", "label": "ALB", "x": 260, "y": 100},
+                       {"id": "app", "kind": "ec2", "label": "App", "x": 460, "y": 100},
+                       {"id": "q", "kind": "todo", "label": "ワーカー（要確認）", "x": 620, "y": 200}],
+             "edges": [{"source": "pc", "target": "alb", "label": "HTTPS"}, {"source": "alb", "target": "app"},
+                       {"source": "app", "target": "q", "dashed": True, "points": [[560, 230]]}]}
+    (tmp_path / "m.json").write_text(json.dumps(model, ensure_ascii=False), encoding="utf-8")
+    out = json.loads(run_script("drawio-tool.py", "build", tmp_path / "m.json", tmp_path / "a.drawio", tmp=tmp_path).stdout)
+    assert out["nodes"] == 5 and out["edges"] == 3
+    lint = json.loads(run_script("drawio-tool.py", "lint", tmp_path / "a.drawio", tmp=tmp_path).stdout)["findings"]
+    assert lint == []
+    xml = (tmp_path / "a.drawio").read_text(encoding="utf-8")
+    assert "resIcon=mxgraph.aws4.ec2" in xml and "dashed=1;" in xml and "mxPoint" in xml
+
+
+def test_build_rejects_unknown_kind_and_bad_edges(tmp_path):
+    (tmp_path / "m.json").write_text(json.dumps({"nodes": [{"id": "x", "kind": "mainframe"}]}))
+    r = run_script("drawio-tool.py", "build", tmp_path / "m.json", tmp_path / "a.drawio", tmp=tmp_path)
+    assert r.returncode == 1 and "unknown kind" in r.stdout
+    (tmp_path / "m.json").write_text(json.dumps({"nodes": [{"id": "x", "kind": "ec2"}], "edges": [{"source": "x", "target": "y"}]}))
+    r = run_script("drawio-tool.py", "build", tmp_path / "m.json", tmp_path / "a.drawio", tmp=tmp_path)
+    assert r.returncode == 1 and "unknown target" in r.stdout

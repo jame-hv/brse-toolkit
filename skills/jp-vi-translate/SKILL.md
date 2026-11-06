@@ -47,21 +47,26 @@ Never write a script for this — use the plugin's tools:
 1. `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/office-text.py extract <file> --max-chars 6000`
    → every translatable unit with a stable id (body, tables, text boxes,
    headers, footers, slide notes, string cells), `duplicates` (translate once,
-   reuse), `parts` (chunks for long documents) and `mixed_formatting`.
+   reuse), `parts` (chunks for long documents) and `marked`: units whose text
+   carries ⟦n⟧…⟦/n⟧ markers around words with their own formatting (bold,
+   colour…). The translation keeps every marker pair around the words that
+   correspond — that is how the formatting is put back.
 2. Glossary check on the full text (below), then translate **part by part**,
    each part as a `{id: text}` JSON:
    - `mt.py` per part when an engine exists, then post-edit; otherwise
-   - the plugin's `translator` agent (pass the part JSON, languages, reader,
-     register and the glossary entries that apply). Same glossary and register
-     for every part; table-of-contents entries reuse the heading translations.
+   - **you must dispatch the plugin's `translator` agent** for each part (pass
+     the part JSON, languages, reader, register and the glossary entries that
+     apply) — do not translate the file yourself in the main context. You
+     then review and correct its output. Same glossary and register for every
+     part; table-of-contents entries reuse the heading translations.
 3. Merge the parts into one translations JSON and run
    `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/office-text.py apply <file> <translations.json> <out copy>`.
-   `untranslated` must be empty (or every remaining id justified, e.g. codes).
+   `untranslated` must be empty (or every remaining id justified, e.g. codes)
+   and `marker_errors` empty — a unit listed there lost its markers; fix the
+   translation and apply again. Never patch the document XML by hand.
 4. `office-diff.py <original> <copy>`: only text changed, `identical_formatting`
    true; `office.py render <copy> <dir>` and look at every page/slide —
-   overflow from longer text, fonts, line breaks. Paragraphs listed in
-   `mixed_formatting` (a bold word inside a sentence) → check them on the
-   image and fix emphasis by hand where it matters.
+   overflow from longer text, fonts, line breaks, emphasis on the right words.
 
 ## Before translating any passage
 
@@ -122,7 +127,7 @@ Never write a script for this — use the plugin's tools:
 
 ## Checks on the result (always)
 
-- `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/lang-lint.py <translated text file> --lang <dst> --source-lang <src>`:
+- `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/lang-lint.py <translations.json or text file> --lang <dst> --source-lang <src>`:
   zero errors (untranslated source-script characters, half-width kana);
   warnings (です/ます vs だ/である mix, width mix, long sentences) fixed or
   justified.

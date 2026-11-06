@@ -47,7 +47,7 @@ def test_docx_and_pptx_text_changes(tmp_path):
         p.slides.add_slide(p.slide_layouts[1]).shapes.title.text = text
         p.save(tmp_path / f"{name}.pptx")
     d = json.loads(run_script("office-diff.py", tmp_path / "a.docx", tmp_path / "b.docx").stdout)
-    assert "-Scope: search" in d["text_changes"]["items"] and "+Scope: search and order" in d["text_changes"]["items"]
+    assert {"id": "body#p0", "before": "Scope: search", "after": "Scope: search and order"} in d["text_changes"]["items"]
     p = json.loads(run_script("office-diff.py", tmp_path / "a.pptx", tmp_path / "b.pptx").stdout)
     assert "1" in p["changed_slides"]
 

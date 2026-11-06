@@ -29,9 +29,9 @@ def test_docx_extract_covers_body_table_header_footer_and_flags_mixed_runs(tmp_p
     make_docx(tmp_path / "a.docx")
     out = json.loads(run_script("office-text.py", "extract", tmp_path / "a.docx", tmp=tmp_path, env=NO_CLI).stdout)
     texts = {u["text"] for u in out["units"]}
-    assert {"社外秘", "株式会社サンプル", "概要", "本書は検索機能の設計を示す。", "項目", "必須"} <= texts
-    mixed = [u["id"] for u in out["units"] if u["text"] == "本書は検索機能の設計を示す。"]
-    assert mixed[0] in out["mixed_formatting"]
+    assert {"社外秘", "株式会社サンプル", "概要", "本書は⟦1⟧検索機能⟦/1⟧の設計を示す。", "項目", "必須"} <= texts
+    mixed = [u["id"] for u in out["units"] if u["text"].startswith("本書は")]
+    assert mixed[0] in out["marked"]
 
 
 def test_docx_apply_writes_copy_keeps_first_run_format_and_reports_gaps(tmp_path):
@@ -112,3 +112,40 @@ def test_office_py_falls_back_to_python_and_says_why(tmp_path):
     wb.save(tmp_path / "x.xlsx")
     chk = json.loads(run_script("office.py", "check", tmp_path / "x.xlsx", tmp_path, tmp=tmp_path, env=NO_CLI).stdout)
     assert chk["tool"] is None and "office-diff" in chk["note"]
+
+
+def test_docx_bold_word_keeps_its_formatting_after_translation(tmp_path):
+    make_docx(tmp_path / "a.docx")
+    units = json.loads(run_script("office-text.py", "extract", tmp_path / "a.docx", tmp=tmp_path, env=NO_CLI).stdout)["units"]
+    uid = next(u["id"] for u in units if u["text"].startswith("本書は"))
+    bad = next(u["id"] for u in units if u["text"] == "概要")
+    tr = {uid: "Tài liệu này mô tả thiết kế của ⟦1⟧chức năng tìm kiếm⟦/1⟧.", bad: "Tổng quan ⟦7⟧x⟦/7⟧"}
+    (tmp_path / "tr.json").write_text(json.dumps(tr, ensure_ascii=False), encoding="utf-8")
+    r = json.loads(run_script("office-text.py", "apply", tmp_path / "a.docx", tmp_path / "tr.json", tmp_path / "b.docx",
+                              tmp=tmp_path, env=NO_CLI).stdout)
+    assert r["marker_errors"] == [] or r["marker_errors"] == [bad]
+    p = next(p for p in docx.Document(tmp_path / "b.docx").paragraphs if p.text.startswith("Tài liệu"))
+    assert p.text == "Tài liệu này mô tả thiết kế của chức năng tìm kiếm."
+    assert [(run.text, bool(run.bold)) for run in p.runs] == [
+        ("Tài liệu này mô tả thiết kế của ", False), ("chức năng tìm kiếm", True), (".", False)]
+    heading = docx.Document(tmp_path / "b.docx").paragraphs[0].text
+    assert "⟦" not in heading  # an invented marker never leaks into the document
+
+
+def test_office_diff_docx_sees_tables_and_headers(tmp_path):
+    make_docx(tmp_path / "a.docx")
+    d = docx.Document(tmp_path / "a.docx")
+    d.sections[0].header.paragraphs[0].text = "Confidential"
+    d.tables[0].cell(0, 0).text = "Item"
+    d.save(tmp_path / "b.docx")
+    out = json.loads(run_script("office-diff.py", tmp_path / "a.docx", tmp_path / "b.docx").stdout)
+    changed = {c["id"]: c for c in out["text_changes"]["items"]}
+    assert any(c["before"] == "社外秘" and c["after"] == "Confidential" for c in changed.values())
+    assert any(c["before"] == "項目" and c["after"] == "Item" for c in changed.values())
+
+
+def test_lang_lint_reads_translation_json(tmp_path):
+    f = tmp_path / "tr.json"
+    f.write_text(json.dumps({"body#p0": "Tổng quan", "body#p1": "Còn sót 注文 ở đây"}, ensure_ascii=False), encoding="utf-8")
+    out = json.loads(run_script("lang-lint.py", f, "--lang", "vi", "--source-lang", "ja").stdout)
+    assert out["errors"] == 1 and out["findings"][0]["id"] == "body#p1"

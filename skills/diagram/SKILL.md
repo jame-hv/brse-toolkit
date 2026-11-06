@@ -59,7 +59,16 @@ from the closest one, or from an existing diagram in the project's sources.
    draw.io's snap sandbox). Open the PNG: every label readable and in the
    right language, arrows point the right way, nothing cut off, the picture
    answers step 1. Fix and repeat until it does.
-7. No draw.io available → Mermaid text, clearly marked as not rendered.
+7. **No template fits** (e.g. a plain 3-tier web system): write a model JSON
+   and run `drawio-tool.py build <model.json> <out.drawio>` — groups
+   (`aws-cloud`, `region`, `vpc`, `public-subnet`, `private-subnet`,
+   `datacenter`, `account`), nodes by kind (`drawio-tool.py kinds`: alb, ec2,
+   rds, s3, sqs, lambda, ecs, cloudfront, waf, pc, mobile, users, server…,
+   plus `box`, `todo` for unconfirmed parts, `note`, `title`), edges with
+   `label`, `dashed` for unconfirmed links and `points` to route around
+   boxes. Then steps 5–6. **Never write draw.io XML by hand or with an ad-hoc
+   script.**
+8. No draw.io available → Mermaid text, clearly marked as not rendered.
 
 ## Output
 
