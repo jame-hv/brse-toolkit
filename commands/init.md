@@ -7,7 +7,11 @@ Run these steps in the current directory (the user's project directory, NOT the 
 
 ## 1. Check what already exists
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read `workspace_root`:
+`<py>` = the Python recorded by `/brse-toolkit:setup` (`runtime.python` in
+`~/.config/brse-toolkit/config.json`), else the first of `python3`, `python`,
+`py -3` that runs. None → tell the user to run `/brse-toolkit:setup`.
+
+Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read `workspace_root`:
 - equals the current directory → already initialized. Stop and ask whether to
   re-run (re-asks the questions below and rewrites `.brse/config.json` and the
   brse-toolkit block of `CLAUDE.md`; memory and knowledge are never touched).

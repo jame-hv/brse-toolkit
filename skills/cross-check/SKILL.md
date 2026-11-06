@@ -5,7 +5,13 @@ description: Use this when the user wants two sources compared against each othe
 
 ## Before running
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+`<py>` below = the Python recorded by `/brse-toolkit:setup` (`runtime.python`
+in `~/.config/brse-toolkit/config.json` — read that file directly), else the
+first of `python3`, `python`, `py -3` that runs. No Python at all → tell the
+user to run `/brse-toolkit:setup`, and continue only with steps that need no
+script, saying which checks were skipped.
+
+Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
 - `error` → show it to the user and stop; the config file must be fixed first.
 - `workspace_root` is null → the folder isn't initialized. Ask once: run
   `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
@@ -41,7 +47,7 @@ in the output, don't guess what the old version looked like.
 ## 3 kinds of source pairs (spec section 6.2)
 
 - **Old spec vs new spec**: parse both into `[{"key": "<field/page>", "value": "<content>"}]`,
-  run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/cross-check/scripts/diff-structured.py old.json new.json`.
+  run `<py> ${CLAUDE_PLUGIN_ROOT}/skills/cross-check/scripts/diff-structured.py old.json new.json`.
 - **Code vs spec**: get the actual logic from `code-to-business`, cross-check it
   against the spec description using the same mechanism above.
 - **Excel vs Excel**: run `${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py`

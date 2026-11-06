@@ -5,7 +5,13 @@ description: Use this when the user asks to translate text between Japanese and 
 
 ## Before running
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+`<py>` below = the Python recorded by `/brse-toolkit:setup` (`runtime.python`
+in `~/.config/brse-toolkit/config.json` — read that file directly), else the
+first of `python3`, `python`, `py -3` that runs. No Python at all → tell the
+user to run `/brse-toolkit:setup`, and continue only with steps that need no
+script, saying which checks were skipped.
+
+Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
 - `error` → show it to the user and stop; the config file must be fixed first.
 - `workspace_root` is null → the folder isn't initialized. Ask once: run
   `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
@@ -20,7 +26,7 @@ Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
 
 1. Read `.brse/memory/long/parties.md` — who is speaking, who the translation is for
    (relay model, spec section 2).
-2. Save the source text to a file, then run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/jp-vi-translate/scripts/check-glossary.py <text_file>
+2. Save the source text to a file, then run `<py> ${CLAUDE_PLUGIN_ROOT}/skills/jp-vi-translate/scripts/check-glossary.py <text_file>
    .brse/memory/long/glossary.md` (the first argument is a file path, not the text itself) — get the terms already settled, use that exact
    translation, don't invent another wording.
 3. A term appears in the text but is NOT in the glossary → flag "not in the

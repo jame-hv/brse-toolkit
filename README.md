@@ -48,7 +48,8 @@ for the full architecture.
 
 ## Dependencies
 
-    pip install -r requirements.txt
+    pip install -r requirements.txt        # plugin users: /brse-toolkit:setup does this for you
+    pip install -r requirements-dev.txt    # developing this repo (adds pytest)
 
 Also required on the machine: `ripgrep` (rg), `tesseract-ocr` + the `jpn`
 language pack, and `libreoffice` (used as a fallback to render Excel sheets

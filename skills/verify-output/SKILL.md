@@ -27,11 +27,15 @@ description: Mandatory before sending any conclusion — checks every claim has 
 5. The script splits Japanese sentences on 。！？ and treats "？" as a
    question mark, so JP deliverables are checked sentence by sentence.
 
+`<py>` = the Python recorded by `/brse-toolkit:setup` (`runtime.python` in
+`~/.config/brse-toolkit/config.json`), else the first of `python3`, `python`,
+`py -3` that runs. None → tell the user to run `/brse-toolkit:setup`.
+
 ## Mechanism
 
 Before sending the final answer, run:
 
-    python3 ${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py <draft.txt> --source-tag "<config.style.source_tag>"
+    <py> ${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py <draft.txt> --source-tag "<config.style.source_tag>"
 
 Read the returned JSON. If `ok: false`, fix the draft until it's clean of
 violations before answering — never skip past the script's result.

@@ -39,6 +39,18 @@
     "write_to_copy": true,
     "forbid_urls": []
   },
+  "runtime": {
+    "python": ""
+  },
+  "tools": {
+    "paths": {},
+    "office_order": {
+      "xlsx": ["gridcraft-cli", "python"],
+      "docx": ["wordcraft-cli", "python"],
+      "pptx": ["deckcraft-cli", "python"],
+      "image": ["photocraft-cli", "python"]
+    }
+  },
   "memory": {
     "auto_log_session": true,
     "short_retention_days": 30

@@ -58,32 +58,35 @@ def find_workspace(start: Path):
     return None
 
 
-def main() -> None:
-    start = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+def resolve(start: Path) -> dict:
+    """Merged config for `start`. Raises ValueError on a broken or secret-bearing file."""
     xdg = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     user = Path(xdg) / "brse-toolkit" / "config.json"
     root = find_workspace(start)
     layers = [DEFAULTS, user] + ([root / ".brse" / "config.json"] if root else [])
-
     config, loaded, warnings = {}, [], []
+    for i, path in enumerate(layers):
+        if not path.is_file():
+            continue
+        data = load(path)
+        secrets = find_secrets(data)
+        if secrets:
+            raise ValueError(f"{path}: không ghi secret vào config ({', '.join(secrets)}) "
+                             "— đặt key vào biến môi trường, config chỉ ghi tên biến (*_env)")
+        config = data if i == 0 else merge(config, data, "", warnings)
+        loaded.append(str(path))
+    return {"config": config, "loaded": loaded,
+            "workspace_root": str(root) if root else None, "warnings": warnings}
+
+
+def main() -> None:
+    start = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     try:
-        for i, path in enumerate(layers):
-            if not path.is_file():
-                continue
-            data = load(path)
-            secrets = find_secrets(data)
-            if secrets:
-                raise ValueError(f"{path}: không ghi secret vào config ({', '.join(secrets)}) "
-                                 "— đặt key vào biến môi trường, config chỉ ghi tên biến (*_env)")
-            config = data if i == 0 else merge(config, data, "", warnings)
-            loaded.append(str(path))
+        out = resolve(start)
     except ValueError as e:
         print(json.dumps({"error": str(e)}, ensure_ascii=False))
         sys.exit(1)
-
-    print(json.dumps({"config": config, "loaded": loaded,
-                      "workspace_root": str(root) if root else None,
-                      "warnings": warnings}, ensure_ascii=False, indent=2))
+    print(json.dumps(out, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

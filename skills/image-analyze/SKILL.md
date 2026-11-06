@@ -3,9 +3,13 @@ name: image-analyze
 description: Use this when the user shares a screenshot, hand-drawn diagram, or error image to interpret — OCR handles printed/UI text first, vision only covers what OCR can't (layout, arrows, handwriting).
 ---
 
+`<py>` = the Python recorded by `/brse-toolkit:setup` (`runtime.python` in
+`~/.config/brse-toolkit/config.json`), else the first of `python3`, `python`,
+`py -3` that runs. None → tell the user to run `/brse-toolkit:setup`.
+
 ## Mechanism (spec section 6.4)
 
-1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/image-analyze/scripts/ocr-pass.py <image> jpn` —
+1. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/image-analyze/scripts/ocr-pass.py <image> jpn` —
    printed/UI text, more reliable than letting vision read it itself. If the
    image has English/Vietnamese text, call again with `lang=eng`/`vie`.
    `tesseract` or the `jpn`/`eng`/`vie` traineddata isn't installed (the

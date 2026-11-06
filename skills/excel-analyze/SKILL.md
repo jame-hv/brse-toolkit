@@ -5,7 +5,13 @@ description: Use this when the user needs an Excel file read or checked — cell
 
 ## Before running
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+`<py>` below = the Python recorded by `/brse-toolkit:setup` (`runtime.python`
+in `~/.config/brse-toolkit/config.json` — read that file directly), else the
+first of `python3`, `python`, `py -3` that runs. No Python at all → tell the
+user to run `/brse-toolkit:setup`, and continue only with steps that need no
+script, saying which checks were skipped.
+
+Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
 - `error` → show it to the user and stop; the config file must be fixed first.
 - `workspace_root` is null → the folder isn't initialized. Ask once: run
   `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
@@ -18,7 +24,7 @@ Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
 
 ## Mechanism (spec section 6.3)
 
-1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py <file.xlsx>` —
+1. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py <file.xlsx>` —
    value + font_color + strike + fill_color + comment, read precisely from the XML,
    NOT vision.
 2. The meaning of formatting (what red means, what strikethrough means) — NEVER
@@ -26,11 +32,11 @@ Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
    `.brse/memory/long/conventions.md`. From then on apply it automatically, don't ask again.
    A cell with an unfamiliar, never-confirmed format → flag it separately, don't
    apply an existing convention to it.
-3. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-images.py <file.xlsx>
+3. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-images.py <file.xlsx>
    <out_dir>` — images pasted into the sheet, bytes + anchor cell range (NOT a
    single precise cell — state this limitation clearly when citing it).
 4. Shapes/textboxes/arrow annotations that `extract-images.py` can't read →
-   `python3 ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/render-sheet.py <file.xlsx> <out_dir>`.
+   `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/render-sheet.py <file.xlsx> <out_dir>`.
    The script renders to a **PNG** file (headless LibreOffice) and prints JSON
    `{"file": "<path.png>"}` — chain that exact PNG file into the `image-analyze`
    skill (`ocr-pass.py` can only read images, not PDFs).

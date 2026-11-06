@@ -5,7 +5,13 @@ description: Use this when the user needs business logic explained or documented
 
 ## Before running
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
+`<py>` below = the Python recorded by `/brse-toolkit:setup` (`runtime.python`
+in `~/.config/brse-toolkit/config.json` — read that file directly), else the
+first of `python3`, `python`, `py -3` that runs. No Python at all → tell the
+user to run `/brse-toolkit:setup`, and continue only with steps that need no
+script, saying which checks were skipped.
+
+Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
 - `error` → show it to the user and stop; the config file must be fixed first.
 - `workspace_root` is null → the folder isn't initialized. Ask once: run
   `/brse-toolkit:init` first (recommended — memory and knowledge get saved for
@@ -29,7 +35,7 @@ order flow"). Scope unclear → ask, don't pick one arbitrarily.
    to get module boundaries and call relationships instead of re-deriving
    structure from scratch. None exists → skip this step; don't ask the user
    to install anything just for this.
-1. `python3 ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path>
+1. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path>
    <keyword1> <keyword2> ...` with business keywords within the defined scope →
    a list of file:line matches, don't dump whole files into context.
    `rg` not installed (the script exits with `{"error": "ripgrep (rg) not
