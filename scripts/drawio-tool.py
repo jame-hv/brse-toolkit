@@ -792,7 +792,7 @@ def main() -> None:
         elif cmd == "kinds":
             out = {"semantic": sorted(SEMANTIC), "aws": sorted(ICONS), "clients": sorted(CLIENTS),
                    "groups": sorted(GROUPS), "plain": sorted(PLAIN), "statuses": sorted(STATUS),
-                   "layouts": ["manual", "swimlane", "auto"]}
+                   "layouts": ["swimlane", "auto"]}
         elif cmd == "build":
             out = cmd_build(json.loads(Path(args[1]).read_text(encoding="utf-8")), args[2])
         elif cmd == "cells":
