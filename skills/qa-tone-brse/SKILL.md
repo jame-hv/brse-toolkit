@@ -22,50 +22,54 @@ Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
   `.brse/memory/long/`. Never assume a folder name the config doesn't list.
 - `warnings` not empty → mention them in one line (likely a typo in the config).
 
-## Trigger
+## When to use
 
-Need to answer a question from the client or a dev — via a chat/ticket tool
-(Backlog, Redmine, Chatwork...) or by writing into the answer column of an
-Excel Q&A list.
+A question from the client or a developer must be answered — in a chat/ticket
+tool (Backlog, Redmine, Chatwork, ...) or in the answer column of an Excel
+Q&A list.
 
-## Before answering — mandatory
+## Steps
 
-1. Read `.brse/memory/long/parties.md` — determine which party is asking, which party will
-   read the answer. Apply the relay model: do NOT carry the original question's
-   pronouns verbatim into the answer if the reader is a different party — use
-   the specific party's name, or the neutral Vietnamese "chúng tôi"/"quý vị".
-2. If the answer will be written into an existing Excel Q&A list file: run
-   `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py
-   <path/to/qa-list.xlsx>` to read back every existing question/answer.
-3. Compare the new question against existing ones (simple text similarity — same
-   intent, not necessarily same wording). If it matches a question already
-   answered → return the existing answer, do NOT compose a different one on
-   your own.
+1. **Understand the question.** Re-read it: what exactly is asked (a yes/no,
+   a value, a decision, a schedule)? One message with several questions →
+   split them and answer each, numbered the same way.
+2. **Who asks, who reads** — `.brse/memory/long/parties.md`. Relay model: the
+   asker's pronouns are not carried into the answer when the reader is a
+   different party; use the party's name, or the neutral form of the reply
+   language.
+3. **Already answered?** Q&A list in Excel → read every existing row with
+   `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py <qa-list.xlsx>`.
+   Same intent as an answered question → reuse that answer and cite its No.,
+   don't compose a different one.
+4. **Find the answer in the sources** (spec, design, code via
+   `code-to-business`, decisions-log). Cite it. Not found → the answer says
+   it is unconfirmed and what will be checked, never a guess at the client's
+   intent.
+5. **Write**:
+   - First sentence answers directly (yes / no / the value / the decision).
+   - Then the reason or condition, then what is needed from the reader, if
+     anything.
+   - Roughly as long as the question — not an essay.
+   - Terms from `.brse/memory/long/glossary.md`; don't coin new wording.
+6. **Excel Q&A list**: write into a copy (never the original), only in the
+   answer / status / date columns, keeping the sheet's formatting and row
+   structure. List the cells written.
 
 ## Tone per channel
 
-- **Chat/ticket tool**: concise, straight to the answer, moderate politeness
-  level, no email-style opening/closing.
-- **Excel Q&A list**: one notch more formal, since it's an official record.
+- **Chat / ticket**: concise, straight to the answer, moderate politeness, no
+  email-style opening or closing.
+- **Excel Q&A list**: one notch more formal — it is an official record.
 
-Both channels share `.brse/memory/long/glossary.md` for terminology — don't invent new
-wording.
+## Batch processing
 
-## Batch processing (multiple independent units)
-
-Multiple independent Q&A items in the same request (e.g. "answer these 10
-questions in this Q&A list") → dispatch in parallel (spec section 11), one
-subagent per question. Each subagent reads `.brse/memory/long/parties.md` +
-`.brse/memory/long/glossary.md` itself before drafting. The main agent aggregates results,
-dedupes newly-found terms/decisions, then asks the user once, and writes to the
-Q&A list file in one pass. **Subagents never write to `.brse/memory/` themselves.**
+Several independent questions → one subagent per question (spec section 11),
+each reading `parties.md` + `glossary.md` itself. The main agent merges,
+dedupes new terms/decisions, asks the user once, and writes the Q&A file in
+one pass. **Subagents never write to `.brse/memory/` themselves.**
 
 ## After answering
 
-- An uncertain answer → label it as unconfirmed and needing to be asked to the client, in the reply language (the
-  `verify-output` policy — run
-  `${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on
-  the draft before sending), don't guess at the client's intent.
-- If this answer is a new decision not yet in `.brse/memory/long/decisions-log.md` → ask
-  the user whether to save it, then write it immediately (don't delay — see the
-  CLAUDE.md rule).
+- An answer that is a new decision → ask whether to record it in
+  `.brse/memory/long/decisions-log.md`; write it immediately on a yes.
+- Run `verify-output` on the draft.

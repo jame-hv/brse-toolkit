@@ -22,46 +22,54 @@ Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
   `.brse/memory/long/`. Never assume a folder name the config doesn't list.
 - `warnings` not empty → mention them in one line (likely a typo in the config).
 
-## Trigger
+## When to use
 
-Need to understand business logic from source code — never read "the whole
-codebase", a concrete scope is required (1 feature/business flow, e.g. "inventory
-order flow"). Scope unclear → ask, don't pick one arbitrarily.
+Business logic must be explained or documented from existing source code for
+one concrete feature or flow (e.g. "order registration", "monthly closing
+batch"). Never "the whole codebase" — scope unclear → ask, don't pick one.
 
-## Strategy for large codebases (spec section 6.10)
+## Steps (spec section 6.10)
 
-0. If the project already has a code index (a call graph / module map
-   produced by another tool, or notes in `.brse/knowledge/`) — read that first
-   to get module boundaries and call relationships instead of re-deriving
-   structure from scratch. None exists → skip this step; don't ask the user
-   to install anything just for this.
-1. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path>
-   <keyword1> <keyword2> ...` with business keywords within the defined scope →
-   a list of file:line matches, don't dump whole files into context.
-   `rg` not installed (the script exits with `{"error": "ripgrep (rg) not
-   installed"}`) → fall back to the `Grep` tool (or `grep -rn`) with the same
-   keywords, one call per keyword, over the same scope — but call out in the
-   output that this fallback path skips `extract-refs.py`'s Shift-JIS (cp932)
-   decode-retry, so a legacy non-UTF-8 file could be silently skipped or
-   error out instead of being matched.
-2. From the match list, only read (Read tool, just the relevant line ranges) the
-   files/functions that are actually part of the flow — don't read every file
-   that has a match.
-3. Scope spans >~10 files → process file-by-file/module-by-module, write findings
-   to an intermediate draft, consolidate in the final step. Can dispatch in
-   parallel per module (spec section 11) — each subagent reads `.brse/memory/long/glossary.md`
-   before analyzing, and NEVER writes to `.brse/memory/` itself.
-4. Matches found but relevance uncertain → list separately as "found but relevance
-   unconfirmed" — don't discard them or fold them into the main conclusion on your own.
+0. If the project already has a code index (a call graph / module map from
+   another tool, or notes in `.brse/knowledge/`) — read it first for module
+   boundaries. None → skip; don't ask the user to install anything for this.
+1. **Locate** with
+   `<py> ${CLAUDE_PLUGIN_ROOT}/skills/code-to-business/scripts/extract-refs.py <path> <keyword1> <keyword2> ...`
+   (business terms, screen names, route names, table names in scope).
+   `rg` missing (`{"error": "ripgrep (rg) not installed"}`) → use the Grep
+   tool with the same keywords, and say that this path skips the script's
+   Shift-JIS (cp932) retry, so a legacy-encoded file may be missed.
+   Search results only *locate* code — they never support a conclusion.
+2. **Find the entry points**: route / controller action, CLI command, batch
+   schedule entry, screen event, queue consumer.
+3. **Trace end to end and read each function in full** along the path:
+   entry → validation → service / domain logic → data access (tables,
+   columns, transactions) → external effects (mail, API, file, queue, cache).
+   Don't read every file a keyword hit — read what the flow actually calls.
+4. Scope larger than ~10 files → module by module into an intermediate draft,
+   then consolidate. Parallel subagents per module are fine (spec section
+   11); each reads `.brse/memory/long/glossary.md` first and never writes to
+   `.brse/memory/`.
+5. A hit whose relevance is uncertain → list it under *Found, relevance
+   unconfirmed*; don't drop it and don't fold it into the conclusion.
+6. Before trusting an existing DD/spec for this flow → check
+   `.brse/memory/long/decisions-log.md`; the DD may lag behind a QA decision.
 
 ## Output
 
-A business logic document (conditions, processing flow, validation), every
-description sentence citing its `file:line` — either inline (`src/a.py:12`) or
-inside the workspace's `config.style.source_tag`, both of which
-`verify-output`'s lint script accepts.
+1. **Overview** — what the flow does, in business terms, 2–3 lines.
+2. **Entry points** — each with `file:line`.
+3. **Flow** — numbered steps, each with `file:line`.
+4. **Conditions and validation** — table: condition | result | `file:line`.
+5. **Data written / read** — table, column, when.
+6. **External effects** — mail, API, files, queues.
+7. **Unknowns** — what the code doesn't settle (config values, data-driven
+   branches) and who could answer.
 
-## Before trusting existing DD/spec content
+Every sentence cites `file:line`, inline or inside `config.style.source_tag`.
 
-Check `.brse/memory/long/decisions-log.md` first — the DD may not yet reflect the latest
-QA decision (spec section 3).
+## Checks before answering
+
+- Every step of the flow was read in the code, not inferred from a name.
+- Every sentence has a `file:line`.
+- Run `verify-output`.

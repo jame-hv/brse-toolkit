@@ -73,3 +73,13 @@ def test_env_var_name_is_allowed(tmp_path):
     out, code = run(proj, tmp_path / "home")
     assert code == 0
     assert out["config"]["providers"]["openai"]["api_key_env"] == "MY_KEY"
+
+
+def test_free_form_map_children_are_not_unknown_keys(tmp_path):
+    """tools.paths defaults to {} — any tool id under it is legitimate, not a typo."""
+    home = tmp_path / "home"
+    write(home / "brse-toolkit" / "config.json", {"tools": {"paths": {"gridcraft-cli": "/x/gridcraft-cli"}}})
+    out, code = run(tmp_path, home)
+    assert code == 0
+    assert out["warnings"] == []
+    assert out["config"]["tools"]["paths"]["gridcraft-cli"] == "/x/gridcraft-cli"

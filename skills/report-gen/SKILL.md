@@ -22,50 +22,56 @@ Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
   `.brse/memory/long/`. Never assume a folder name the config doesn't list.
 - `warnings` not empty → mention them in one line (likely a typo in the config).
 
-## Template source
+## When to use
 
-Check the `config.paths.templates` folders (project directory — NOT the default template bundled in
-`skills/detail-design-jp/templates/`, two different things, see spec section 7)
-— if the client has their own template, open it with
-`python-pptx`/`python-docx`/`openpyxl` and fill in the content, preserving the
-design. None yet → use a simple default template, and state it plainly in the
-response (in `config.project.reply_language`): no client template yet, the
-default layout was used, the format needs confirming.
+A report, slide deck or Word document has to be produced in the client's (or
+the company's) format.
 
-## Concrete flow (spec section 6.9)
+## Steps
 
-1. **Where the content comes from** — never invent it. Status report →
-   `.brse/memory/long/decisions-log.md` + `cross-check`/`code-to-business` if available.
-   Proposed solutions → chain through `proposal-gen` first. User provides
-   content directly → use that content.
-2. **Determine the template** — as above.
-3. **Determine the audience** — apply the relay model (spec section 2): a
-   client-facing (Japanese) version differs from an internal PM/dev version.
-   Unclear → ask before drafting; don't silently assume internal just because
-   the request didn't specify.
-4. **Determine the format and its shape** — Excel, Slide, or Word are not
-   interchangeable defaults for "a report":
-   - **Slide** (`python-pptx`): a claim/figure that can't be sourced goes in
-     the **speaker notes** as "cần xác nhận thêm", never on the slide itself
-     as a settled fact.
-   - **Excel** (`openpyxl`): naturally fits anything row-shaped — a test
-     case/bug tracker, a status report with one row per item — an unsourced
-     figure goes in a dedicated remark/note column, not silently into the
-     tracked value cell.
-   - **Word** (`python-docx`): fits prose-shaped content — a narrative status
-     summary, a memo. An unsourced claim goes in a clearly separated "Notes /
-     ghi chú nội bộ (không gửi khách)" section at the end of the document, not
-     interleaved into the main narrative.
-   Ambiguous which shape fits (e.g. "weekly status report" could reasonably be
-   either a Word narrative or an Excel tracker) → ask rather than picking
-   silently, since the two shapes hold genuinely different content structure,
-   not just a different file extension.
-5. **Apply `verify-output`** per bullet/row/paragraph per the format's
-   unsourced-claim placement above.
-6. Generate the actual file with the library matching the format chosen in
-   step 4.
-7. **Output**: the file + a short list of "assumptions/unconfirmed points" kept
-   SEPARATE for the user to review before sending — never mixed into the file
-   itself (this is IN ADDITION TO the in-file placement in step 4, not instead
-   of it — the chat response should let the user see the open points without
-   opening the file).
+1. **Restate**: reader (client / internal — unclear → ask), format, template,
+   where the content comes from.
+2. **Content is never invented** (spec section 6.9): status report →
+   `.brse/memory/long/decisions-log.md` + `cross-check` / `code-to-business`
+   results; proposed solutions → `proposal-gen` first; content the user gave
+   → use it as given.
+3. **Template**: a client template in `config.paths.templates` → copy it and
+   fill the copy; never rebuild its layout from scratch. None → a plain
+   default layout, and say in `config.project.reply_language` that the
+   default was used and the format needs confirming. (The DD framework under
+   `${CLAUDE_PLUGIN_ROOT}/skills/detail-design-jp/templates/` is a different
+   thing — spec section 7.)
+4. **Pick the format by the content's shape** — not interchangeable:
+   - Slide: one message per slide; an unsourced figure goes in the speaker
+     notes as "needs confirmation", never on the slide as fact.
+   - Excel: row-shaped content (trackers, one row per item); an unsourced
+     figure goes in a remark column, not into the tracked value cell.
+   - Word: prose; unsourced claims go in a clearly separated internal-notes
+     section at the end.
+   Ambiguous (e.g. "weekly status report") → ask.
+5. **Write the file with the right tool**: the office CLI listed first in
+   `config.tools.office_order` for that file type when `/brse-toolkit:doctor`
+   found it; otherwise python-pptx / python-docx / openpyxl **opening the
+   copied template** (load the existing file — creating a new workbook or
+   writing through a DataFrame drops styles, merged cells, images and
+   shapes).
+6. **Check the result**:
+   - Re-read the written file with the same tool and confirm each value
+     landed in the intended cell / placeholder.
+   - Render pages/slides/sheets to images (office CLI `render`, or
+     `skills/excel-analyze/scripts/render-sheet.py`) and look at them:
+     overflow, fonts, colours, merged cells, images and shapes still present.
+   - Copy of an existing file → list exactly which cells/slides changed;
+     nothing else may differ.
+
+## Output
+
+The file path(s), what changed, the checks run, and a separate list of
+assumptions / unconfirmed points for the user to review before sending —
+kept out of the file itself (in addition to the in-file placement in step 4).
+
+## Checks before answering
+
+- Template formatting preserved (verified on the rendered image).
+- No original file overwritten.
+- Run `verify-output`.

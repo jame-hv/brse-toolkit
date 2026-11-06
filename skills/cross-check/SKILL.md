@@ -22,81 +22,107 @@ Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
   `.brse/memory/long/`. Never assume a folder name the config doesn't list.
 - `warnings` not empty → mention them in one line (likely a typo in the config).
 
+## When to use
+
+Two sources must agree and the user wants to know where they don't: an
+estimate or sheet vs the client's documents, old spec vs new spec, code vs
+spec, Excel vs Excel. Also: are `.brse/memory/long/` entries stale after a
+source changed, and does `decisions-log.md` match an updated DD.
+
+## Step 0 — Coverage first
+
+1. **Restate**: side A, side B, what "agree" means here (same items? same
+   numbers? same wording?), and which sheets / sections are in scope.
+2. **List every file on both sides**, and inside each file every sheet,
+   slide or page (hidden sheets included). Every one is either read in full
+   or listed as *not read* with the reason. Slides and documents are read as
+   text, not searched for numbers; images and shapes go through
+   `excel-analyze` / `image-analyze`.
+3. Keyword search only *locates* candidates — a match/mismatch verdict always
+   comes from reading both sides.
+
 ## Getting the old version of a document from git history (spec section 3)
 
-`/brse-toolkit:init` runs `git init` specifically to support this step — the old
-version of a document does NOT live in a same-named file like
-`spec_v2.xlsx`/`spec_v3.xlsx`, it lives in the project directory's git history.
-Before diffing:
+`/brse-toolkit:init` runs `git init` for this — the old version of a document
+does NOT live in a same-named file like `spec_v2.xlsx`/`spec_v3.xlsx`, it
+lives in the project directory's git history. Before diffing:
 
-1. Check the file's commit history: `git -C <project-dir> log --oneline -- <source-folder>/<relative-path>`  (`<source-folder>` = one of `config.paths.sources`).
-2. Extract the old version to a temp file to diff against the current one:
+1. `git -C <project-dir> log --oneline -- <source-folder>/<relative-path>`
+   (`<source-folder>` = one of `config.paths.sources`).
+2. Extract the old version to a temp file:
 
        git -C <project-dir> show <rev>:<source-folder>/<relative-path> > <scratch-dir>/<name>-old.<ext>
 
-   (`<rev>` = the commit hash/tag of the version the client sent previously; for
-   binary files like `.xlsx`, remember to redirect to a file, don't read straight
-   to stdout.)
-3. Parse both the old version (temp file) and the new version with the matching
-   adapter below, then diff.
+   (binary files like `.xlsx`: redirect to a file, never read to stdout.)
+3. Parse both versions with the matching adapter below, then diff.
 
-The project directory isn't a git repo yet, or the file was never committed →
-there is **no** old version to compare against. State this limitation plainly
-in the output, don't guess what the old version looked like.
+Not a git repo yet, or the file was never committed → there is **no** old
+version. Say so plainly; don't guess what it looked like.
 
 ## 3 kinds of source pairs (spec section 6.2)
 
 - **Old spec vs new spec**: parse both into `[{"key": "<field/page>", "value": "<content>"}]`,
   run `<py> ${CLAUDE_PLUGIN_ROOT}/skills/cross-check/scripts/diff-structured.py old.json new.json`.
-- **Code vs spec**: get the actual logic from `code-to-business`, cross-check it
-  against the spec description using the same mechanism above.
+- **Code vs spec**: get the actual logic from `code-to-business`, then compare
+  it against the spec's description the same way.
 - **Excel vs Excel**: run `${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py`
-  on both files, convert to `{key, value}` using the table's key column, then
-  diff. There is no script for this conversion step — `extract-cells.py`
-  only ever emits one record per cell (`{"cell": "A2", "value": ...}`), never
-  grouped rows, so the key-column choice and header-row handling are a
-  judgment call made explicitly each time, not inferred: read the sheet's own
-  header row first to identify which column is the item/field name (the key)
-  and which column holds the value being compared, skip the header row(s)
-  themselves as data, and state the two column letters chosen in the output
-  so the comparison is reproducible. A row whose key column repeats (same
-  item name twice in one sheet) → `diff-structured.py` silently keeps only
-  the last occurrence per key — flag duplicate keys in the source sheet
-  before diffing rather than letting them silently disappear.
+  on both files and convert to `{key, value}` using the table's key column.
+  `extract-cells.py` emits one record per cell, never grouped rows, so the
+  key column and header rows are chosen explicitly each time: read the header
+  row, pick the item/field column (key) and the compared column (value), skip
+  the header rows as data, and state both column letters in the output so the
+  comparison is reproducible. A key that repeats in one sheet →
+  `diff-structured.py` keeps only the last occurrence — flag duplicates
+  before diffing.
 
-**Real limitation**: only the parts that can be converted to `{key, value}` can
-be compared. Free-form prose can't be structurally compared — fall back to
-sentence-by-sentence comparison, lower confidence, and state clearly in the
-output which mode is being used.
+**Real limitation**: only content that converts to `{key, value}` is compared
+structurally. Free prose → sentence-by-sentence comparison, lower confidence;
+say which mode was used.
 
-## Batch processing (multiple independent units)
+## Counting and totals
 
-Multiple independent source pairs need cross-checking in the same request (e.g.
-5 spec files all have a new version) → dispatch in parallel (spec section 11),
-one subagent per pair. Each subagent reads the relevant `.brse/memory/` entries itself
-before comparing. The main agent aggregates results, dedupes overlapping
-"needs re-verify" entries, then asks the user once. **Subagents never write to
-`.brse/memory/` themselves.**
+Before saying lists or totals match: count the items on each side
+independently (A's list, B's list), recompute any total from its parts on
+both sides, and compare the counts. A document whose own text and own table
+disagree (e.g. "25 modules" above a table of 26) is a finding in itself.
 
-## Detecting stale `.brse/memory/` entries
+## Batch processing
 
-Every entry in `.brse/memory/long/*.md` has a source + version/date (spec section 3). When
-a diff finds a field that changed between the old/new version, search
-`.brse/memory/long/*.md` for any entry that cites that same field in the old version →
-flag it "needs re-verify" right in the response, don't confidently keep using
-the old value.
+Several independent pairs → one subagent per pair (spec section 11), each
+reading the relevant `.brse/memory/` entries itself. The main agent merges,
+dedupes "needs re-verify" entries, asks the user once. **Subagents never
+write to `.brse/memory/` themselves.**
+
+## Stale `.brse/memory/` entries
+
+Every entry in `.brse/memory/long/*.md` carries a source and date (spec
+section 3). A field that changed between versions → search
+`.brse/memory/long/*.md` for entries citing that field in the old version →
+flag them "needs re-verify" in the response; don't keep using the old value.
 
 ## Reconciling `decisions-log.md` against the DD
 
-When the DD/spec is updated: for every entry in `.brse/memory/long/decisions-log.md` whose
-`Status in the official doc` is not `FULLY updated` and whose `Status` is
-`active` (field names as scaffolded by `/brse-toolkit:init`), check whether the
-new DD now reflects that
-decision — if it does, ask the user to confirm updating the entry's status; if
-not, keep flagging it.
+When the DD/spec is updated: for every entry in
+`.brse/memory/long/decisions-log.md` whose `Status in the official doc` is
+not `FULLY updated` and whose `Status` is `active` (field names as scaffolded
+by `/brse-toolkit:init`), check whether the new DD now reflects the decision —
+yes → ask the user to confirm updating the entry's status; no → keep flagging.
 
-## Before answering
+## Output
 
-Apply `verify-output` — run
-`${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on the
-draft response before sending.
+**Verdict:** e.g. "42 items compared — 40 match, 2 differ, 3 not compared".
+
+| # | Item | Side A (ref) | Side B (ref) | Difference | Suggested fix |
+|---|---|---|---|---|---|
+
+**Compared:** what, how many, which mode (structural / sentence).
+**Not compared:** item or file + reason.
+**Sources read / not read:** from step 0.
+
+## Checks before answering
+
+- Every file, sheet, slide, page in scope is in *read* or *not read*.
+- Counts and totals recomputed from both sides.
+- Never "everything matches" from a sample — the verdict states how many
+  items were compared.
+- Run `verify-output`.

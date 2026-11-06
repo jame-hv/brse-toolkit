@@ -34,7 +34,10 @@ def merge(base: dict, over: dict, prefix: str, warnings: list) -> dict:
         if k not in base:
             warnings.append(f"khóa lạ '{key}' (gõ sai tên?)")
         if isinstance(v, dict) and isinstance(base.get(k), dict):
-            out[k] = merge(base[k], v, key + ".", warnings)
+            if not base[k]:  # an empty default ({}) is a free-form map: any key is valid
+                out[k] = {**base[k], **v}
+            else:
+                out[k] = merge(base[k], v, key + ".", warnings)
         else:
             out[k] = v
     return out

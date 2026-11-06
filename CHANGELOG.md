@@ -1,5 +1,60 @@
 # Changelog
 
+## 2.0.0 — 2026-11-06
+
+**Breaking:** workspaces now live under `.brse/`, and `/brse-toolkit:init`
+asks questions instead of copying a fixed template. Existing 1.x workspaces
+(`memory/` at the project root) are offered a migration on the next
+`/brse-toolkit:init`; nothing moves without a yes.
+
+### Added
+- **Per-workspace JSON config** — `config/defaults.json` <
+  `~/.config/brse-toolkit/config.json` < `.brse/config.json`, merged by
+  `scripts/brse-config.py`: warns on unknown keys, reports JSON errors by
+  line, refuses secret values (config names environment variables only).
+- **`/brse-toolkit:doctor`** — read-only report of Python, packages, office
+  CLIs, draw.io, OCR, LibreOffice, second-agent CLIs, with the install
+  command for this OS (`config/dependencies.json`).
+- **`/brse-toolkit:setup`** — Python packages into a private venv
+  (`runtime.python`), optional tools only with a yes per item, office CLIs
+  located inside installed apps and recorded in `tools.paths`.
+- **New project CLAUDE.md block** from `init`: deliverables table, folder map,
+  skill routing table, and 10 working rules that each show up in the reply
+  (restatement, sources read / not read, evidence, scope, feedback ledger,
+  checks before handoff, client-file safety, writing density, memory,
+  handoff format).
+- **Plugin-level tests** (`scripts/tests/test_plugin_structure.py`) and the
+  first behavior eval (`evals/init-creates-workspace`).
+
+### Changed
+- Nine skills rewritten with explicit steps, output formats and checks
+  (brainstorm-brse, research-jp-tech, proposal-gen, report-gen, qa-tone-brse,
+  code-to-business, cross-check, excel-analyze, jp-vi-translate). Highlights:
+  coverage inventory before any comparison, counts recomputed from both
+  sides, end-to-end code tracing, slides with one message each and numbers
+  tied to the estimate, rendering output files to images before handoff.
+- `jp-vi-translate` covers JA / VI / EN, translates files into copies,
+  keeps source density, and verifies numbers and names are unchanged.
+- Skills read folders, source-tag format, honorific policy and test status
+  vocabulary from config instead of hardcoding them; scripts run with the
+  recorded interpreter instead of a hardcoded `python3`.
+- Glossary starts empty; the 56 starter terms moved to
+  `config/starter-glossary.json` as hints only.
+- `pytest` moved to `requirements-dev.txt`; `pytest.ini` disables pytest's
+  cache.
+
+### Fixed
+- `lint-hedge-words.py` accepted only a literal Vietnamese tag; now takes
+  `--source-tag` and accepts inline `file:line` / `Sheet!A1` references.
+- `check-glossary.py` matched placeholder cells (`—`) against any text; EN
+  terms now match as whole words.
+- `cross-check` looked for Vietnamese decisions-log field names that `init`
+  never wrote, so reconciliation never matched.
+- `jp-vi-translate` told the agent to pass the text itself to
+  `check-glossary.py`, which expects a file path.
+- Test data derived from real client documents replaced with synthetic data;
+  client- and user-specific rules removed from skills.
+
 ## 1.1.0 — 2026-08-21
 
 ### Added

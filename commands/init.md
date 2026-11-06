@@ -40,7 +40,8 @@ named like "template" → template folder).
 3. Which folders hold source material from the client (propose from step 2).
 4. Which folders hold the client's templates, if any.
 5. The main deliverables for this project (e.g. estimate, proposal deck,
-   detail design, test spec, Q&A list).
+   detail design, test spec, Q&A list) — and for each one: is it read by the
+   client or only internally, and which file format.
 
 Don't guess answers the user didn't give — leave the default and say so.
 
@@ -67,11 +68,12 @@ inherited from the plugin defaults and the user's own config):
     "client_language": "<answer 2>",
     "team_language": "<answer 2>",
     "reply_language": "<answer 2>",
-    "deliverables": ["<answer 5>"]
+    "deliverables": [{"name": "<answer 5>", "reader": "client|internal", "format": "xlsx|pptx|docx|md"}]
   },
   "paths": {
     "sources": ["<answer 3>"],
-    "templates": ["<answer 4>"]
+    "templates": ["<answer 4>"],
+    "outputs": "<an output folder — propose `output/`>"
   }
 }
 ```
@@ -130,36 +132,85 @@ if not.
 Write the block below between the markers `<!-- brse-toolkit:start -->` and
 `<!-- brse-toolkit:end -->`. If `CLAUDE.md` exists, replace only an existing
 block between those markers (or append the block when there is none) — never
-touch the user's own content outside it. Fill every `<...>` from the answers;
-write the block in the reply language.
+touch the user's own content outside it. Fill every `<...>` from the answers
+and the folder scan; an answer the user didn't give → write `not set yet`,
+never a guess. Deliverable `Language` = the client language for `reader: client`, the team language for `reader: internal` (a rule, not a guess). Keep the block's wording in English as given (it is read by the
+agent); only the filled-in values may be in another language.
 
 ```markdown
 <!-- brse-toolkit:start -->
-## Project
-<project name> — deliverables: <deliverables>.
-Client documents are in <client language>; the team works in <team language>;
-reply to the user in <reply language>.
+# <project name>
+
+Client documents: <client language> · Team: <team language> · Reply to the user in: <reply language>
+
+## Deliverables
+| Deliverable | Reader | Format | Template | Language |
+|---|---|---|---|---|
+| <one row per deliverable from answer 5> | <client / internal> | <xlsx / pptx / docx / md> | <template path, or "none yet"> | <language> |
 
 ## Where things are
-- Client sources: <source folders> (converted copies: `.brse/knowledge/docs/`)
-- Client templates: <template folders>
-- Settled facts: `.brse/memory/long/` (parties, glossary, conventions, decisions)
-- Recent sessions: `.brse/memory/short/`
-- Settings: `.brse/config.json` (check with `/brse-toolkit:doctor`)
+- Client sources: <source folders>. Converted, searchable copies: `.brse/knowledge/docs/`.
+- Client templates: <template folders>.
+- Settled facts: `.brse/memory/long/` — parties, glossary, conventions, decisions-log. Read before any work.
+- Recent sessions: `.brse/memory/short/`.
+- Settings and available tools: `.brse/config.json`, `/brse-toolkit:doctor`.
 
-## How to work here
-1. Before any non-trivial task, restate in one or two lines what will be
-   delivered, in which format, and what is out of scope. Unclear → ask first.
-2. Read the sources before concluding — the whole relevant document, not a
-   keyword search. Say which sources were read and which were not.
-3. Every conclusion cites its source. No source → say it is unconfirmed.
-4. Do only what was asked. Anything extra (a new approach, a PoC, a rename,
-   a deletion) → propose it and wait for a yes.
-5. Before handing work back, check it against the request and against every
-   piece of feedback given so far in this task.
-6. Never overwrite a client's original file — write to a copy.
-7. When the user confirms a term, convention, party, or decision, write it to
-   `.brse/memory/long/` right away, with its source and date.
+## Which skill for which job
+| The user asks to… | Use |
+|---|---|
+| compare two sources, check a sheet/estimate/spec against client documents, find what changed | `brse-toolkit:cross-check` |
+| read or check an Excel file (values, colours, images, shapes) | `brse-toolkit:excel-analyze` |
+| read a screenshot, diagram or photo | `brse-toolkit:image-analyze` |
+| translate (JA / VI / EN) an email, spec, sheet, Q&A | `brse-toolkit:jp-vi-translate` |
+| answer a client/dev question, fill a Q&A list | `brse-toolkit:qa-tone-brse` |
+| explain business logic from source code | `brse-toolkit:code-to-business` |
+| write a detail design | `brse-toolkit:detail-design-jp` |
+| review a test case list against the design | `brse-toolkit:testcase-review-jp` |
+| run test cases in a browser | `brse-toolkit:e2e-test-playwright` |
+| propose options for a problem | `brse-toolkit:brainstorm-brse` |
+| research a technology / regulation | `brse-toolkit:research-jp-tech` |
+| make a proposal | `brse-toolkit:proposal-gen` |
+| produce a report / slide / Word file in the client's format | `brse-toolkit:report-gen` |
+Several apply → name them in the restatement (rule 1) and chain them.
+
+## Rules — each one is visible in the reply
+1. **Restate first.** For any task beyond a one-line answer, open with:
+   `Deliverable:` · `Format / file:` · `Sources:` · `Out of scope:`. Anything
+   unclear → ask before working. Re-read the user's message once more before
+   starting; answer what was asked, not a nearby question.
+2. **Read, don't grep.** Read every relevant source in full (all sheets, all
+   slides, all pages, including images and shapes). Keyword search only
+   locates; it never supports a conclusion. End analytical work with a
+   `Sources read:` list and a `Not read:` list (with the reason).
+3. **Evidence or "unconfirmed".** Every conclusion cites file + sheet/cell,
+   page or `file:line`. No source → write that it is unconfirmed and must be
+   asked. Never present a guess, a typical value or a remembered fact as the
+   client's.
+4. **Stay in scope.** Do only what was asked. A new approach, a PoC, extra
+   rows, renames, deletions, extra sections → propose and wait for a yes.
+5. **Feedback ledger.** Keep a numbered list of every correction the user gave
+   in this task. Before handing back, go through it and mark each item done
+   or not done in the reply.
+6. **Check before handoff.** Verify with the plugin's own scripts or tools and
+   a second agent when `/brse-toolkit:doctor` shows one — never with a script
+   written on the spot to "prove" the work. Office files: render to an image
+   and look at it before saying it's done.
+7. **Client files.** Never overwrite an original — write a copy in
+   <outputs folder>, keep its formatting (fonts, colours, merged cells,
+   images, shapes). Prefer the office CLI the config lists over rewriting the
+   file with a library. Real client data: no rows created or removed unless
+   asked; report exactly which cells changed.
+8. **Writing.** Match the deliverable: estimate cells and slide bullets are
+   short noun phrases, one idea each, no filler; emails and Q&A answers are
+   complete sentences in the client's register. Bilingual sheets: one full
+   table per language side by side, never alternating JA/VI columns. Same
+   level of detail as the surrounding rows — not finer, not coarser.
+9. **Memory.** When the user confirms a term, convention, party or decision,
+   write it to `.brse/memory/long/` immediately, with source and date. A
+   correction that applies beyond this task → propose adding it to
+   `conventions.md`.
+10. **Handoff format.** End with: output path(s) · what changed · checks run
+    and their result · open questions for the client.
 <!-- brse-toolkit:end -->
 ```
 

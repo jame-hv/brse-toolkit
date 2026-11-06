@@ -22,43 +22,59 @@ Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
   `.brse/memory/long/`. Never assume a folder name the config doesn't list.
 - `warnings` not empty → mention them in one line (likely a typo in the config).
 
-## Mechanism (spec section 6.3)
+## When to use
 
-1. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py <file.xlsx>` —
-   value + font_color + strike + fill_color + comment, read precisely from the XML,
-   NOT vision.
-2. The meaning of formatting (what red means, what strikethrough means) — NEVER
-   guess. First time a pattern is observed → ask for confirmation → write it to
-   `.brse/memory/long/conventions.md`. From then on apply it automatically, don't ask again.
-   A cell with an unfamiliar, never-confirmed format → flag it separately, don't
-   apply an existing convention to it.
-3. `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-images.py <file.xlsx>
-   <out_dir>` — images pasted into the sheet, bytes + anchor cell range (NOT a
-   single precise cell — state this limitation clearly when citing it).
-4. Shapes/textboxes/arrow annotations that `extract-images.py` can't read →
-   `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/render-sheet.py <file.xlsx> <out_dir>`.
-   The script renders to a **PNG** file (headless LibreOffice) and prints JSON
-   `{"file": "<path.png>"}` — chain that exact PNG file into the `image-analyze`
-   skill (`ocr-pass.py` can only read images, not PDFs).
-5. The final report merges both kinds of source, but does NOT present them as
-   equally reliable: the cell-text part (fully accurate) and the image/shape
-   part (via vision, labeled "read from an image, not 100% certain").
+An Excel file must be read or checked: cell values and formulas, formatting
+that carries meaning (colours, strikethrough, comments), pasted images, or
+shapes / text boxes / arrows that only make sense visually.
 
-## Batch processing (multiple independent units)
+## Steps (spec section 6.3)
 
-Multiple independent Excel files/sheets need analysis in the same request →
-dispatch in parallel (spec section 11), one subagent per file. Each subagent
-reads `.brse/memory/long/conventions.md` + `.brse/memory/long/glossary.md` itself before analyzing.
-The main agent aggregates results, dedupes newly-found formatting conventions,
-then asks the user once. **Subagents never write to `.brse/memory/` themselves.**
+0. **Inventory**: every sheet (hidden ones included), its used range, and
+   whether it has images, shapes or charts. When `/brse-toolkit:doctor` found
+   the office CLI listed first in `config.tools.office_order.xlsx` (e.g.
+   `gridcraft-cli info <file> --json`), use it for this inventory and for
+   reading ranges (`cat --range`); otherwise use the scripts below. Report the
+   inventory — the user must see which sheets were read.
+1. **Cells**: `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-cells.py <file.xlsx>` —
+   value + font colour + strike + fill colour + comment, read from the XML,
+   NOT by vision. Formula cells: the script reports the formula and the
+   cached value; a formula with no cached value (file never recalculated) is
+   flagged — say so, don't report it as empty.
+2. **Meaning of formatting** (what red means, what strikethrough means) —
+   NEVER guessed. First time a pattern appears → ask → write it to
+   `.brse/memory/long/conventions.md`; from then on apply it without asking.
+   A format never confirmed → flag it separately, don't stretch an existing
+   convention over it.
+3. **Images**: `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/extract-images.py <file.xlsx> <out_dir>` —
+   bytes + anchor cell range (a range, NOT one precise cell — say so when
+   citing).
+4. **Shapes, text boxes, arrows** that the image extractor can't read →
+   `<py> ${CLAUDE_PLUGIN_ROOT}/skills/excel-analyze/scripts/render-sheet.py <file.xlsx> <out_dir>`
+   (headless LibreOffice → PNG, prints `{"file": "<path.png>"}`), or the office
+   CLI's render/convert when available → pass that PNG to `image-analyze`.
+5. **Merged cells**: the value lives only in the top-left cell; the rest read
+   empty — never conclude a merged header is blank.
 
-## Shared with `qa-tone-brse`
+## Output
 
-`extract-cells.py` is also the script `qa-tone-brse` uses to read back the Q&A
-list Excel — there is no second copy of this script anywhere else.
+Per sheet: what it contains, the key values (with `Sheet!A1` refs), meaningful
+formatting, images/shapes and what they show. Cell text is exact; anything
+read from an image is labelled "read from an image — not 100% certain". Close
+with the inventory: sheets read / not read.
 
-## Before answering
+## Batch processing
 
-Apply `verify-output` — run
-`${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on the
-draft response before sending.
+Several independent files or sheets → one subagent per file (spec section 11),
+each reading `conventions.md` + `glossary.md` itself. The main agent merges,
+dedupes newly found conventions, asks the user once. **Subagents never write
+to `.brse/memory/` themselves.**
+
+`extract-cells.py` is also what `qa-tone-brse` uses to read a Q&A list — there
+is no second copy.
+
+## Checks before answering
+
+- Every sheet is in the inventory as read or not read (with reason).
+- No formatting meaning applied without a confirmed convention.
+- Run `verify-output`.

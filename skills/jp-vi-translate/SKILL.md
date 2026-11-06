@@ -1,6 +1,6 @@
 ---
 name: jp-vi-translate
-description: Use this when the user asks to translate text between Japanese and Vietnamese — emails, spec passages, chat/QA messages, or fixed terminology/glossary fields.
+description: Use this when the user asks to translate between Japanese, Vietnamese and English — emails, chat/Q&A messages, spec passages, whole documents or sheets, or fixed terminology — with glossary terms enforced, formatting kept, and a second check when one is available.
 ---
 
 ## Before running
@@ -22,80 +22,95 @@ Run `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/brse-config.py` and read its JSON:
   `.brse/memory/long/`. Never assume a folder name the config doesn't list.
 - `warnings` not empty → mention them in one line (likely a typo in the config).
 
+## When to use
+
+Text must be translated between Japanese, Vietnamese and English (the pairs
+in `config.translation.pairs`): emails, chat/Q&A messages, spec passages,
+whole documents or sheets, fixed terms.
+
+## Step 0 — Scope and form
+
+- **Restate**: source → target language, the reader, the form of the result
+  (reply text, a translated copy of the file, extra columns in a sheet).
+  Target language unclear → ask.
+- **Files are never translated in place**: write a copy in
+  `config.paths.outputs`, keeping the original's formatting (fonts, colours,
+  merged cells, images, shapes) — via `report-gen`'s rules for writing files.
+- **Bilingual sheets**: put the translation as a complete table beside the
+  source table (same rows, same column order), never alternating source /
+  target columns.
+
 ## Before translating any passage
 
-1. Read `.brse/memory/long/parties.md` — who is speaking, who the translation is for
-   (relay model, spec section 2).
+1. Read `.brse/memory/long/parties.md` — who is speaking, who the translation
+   is for (relay model, spec section 2).
 2. Save the source text to a file, then run `<py> ${CLAUDE_PLUGIN_ROOT}/skills/jp-vi-translate/scripts/check-glossary.py <text_file>
-   .brse/memory/long/glossary.md` (the first argument is a file path, not the text itself) — get the terms already settled, use that exact
-   translation, don't invent another wording.
-3. A term appears in the text but is NOT in the glossary → flag "not in the
-   glossary yet, translating tentatively as X, needs confirmation" — don't
-   silently decide on your own.
+   .brse/memory/long/glossary.md` (the first argument is a file path, not the text itself) — use the settled
+   translations verbatim.
+3. A term not in the glossary → translate it tentatively and list it as
+   "not in the glossary yet — translated as X, needs confirmation". Common IT
+   terms: `${CLAUDE_PLUGIN_ROOT}/config/starter-glossary.json` is a hint, not a
+   decision.
 
-## Fixed fields/terminology
+## Translating
 
-Use the translation from `check-glossary.py` verbatim. Don't change it.
-
-## Prose / email / QA (spec section 6.6 — actually tested, the old 2-pass model
-performed worse than plain machine translation)
-
-1. Read the whole passage to understand the **communicative purpose**, don't
-   translate clause by clause.
-2. Translate directly by meaning, in the right Vietnamese business register —
-   do NOT stick to Japanese sentence/clause boundaries, do NOT literally
-   translate tone-softening filler words (というか/ということです).
-3. Apply the relay model: the source's first-person pronoun (私たち) → change
-   to the specific party's name when relaying to another party, don't translate
-   it verbatim. Relationship between parties not yet confirmed in
-   `.brse/memory/long/parties.md`:
-   - VI target → default to the neutral Vietnamese pronouns "chúng
-     tôi"/"quý vị" ("we"/"you", formal register), don't pick an informal
-     register (em/anh/chị) on your own.
+1. Read the whole passage first for its **purpose**; translate by meaning, not
+   clause by clause. Don't follow the source's sentence boundaries, don't
+   translate softening filler (というか / ということです) literally (spec
+   section 6.6 — tested: the old 2-pass model did worse than plain MT).
+2. **Same density as the source.** A terse sheet cell stays a terse noun
+   phrase; a one-line bullet stays one line. Don't expand, explain or add.
+3. **Unchanged**: IDs, codes, file / class / function names, URLs, numbers,
+   units, dates. Afterwards compare every number and name in the target with
+   the source — they must be identical.
+4. **Register** (relay model): the source's first person (私たち) becomes the
+   specific party's name when relaying to another party. Relationship not yet
+   confirmed in `parties.md`:
+   - VI target → neutral formal "chúng tôi" / "quý vị"; never pick em/anh/chị
+     on your own.
    - JP target → generic honorific placeholders (お客様, 貴社, 御社,
      ご担当者様, 各位...) follow `config.style.honorific_placeholders`:
-     `"allow"` → use them normally; `"avoid"` → only (a) the real party
-     name, once confirmed in `.brse/memory/long/parties.md`, or (b) drop the
-     addressee noun entirely (Japanese elides the subject when it's clear
-     from context — e.g. "ご確認をお願いいたします" instead of
-     "お客様に...いただきたく存じます"). Party not confirmed yet → (b).
-     A project's `.brse/memory/long/conventions.md` overrides both.
-   - Don't stop and ask the user who the recipient/relay chain is just to
-     pick a register — on a draft that hasn't been sent anywhere yet, that
-     question reads as a non-sequitur. Translate with the defaults above; if
-     it's genuinely load-bearing, add one line after the translation noting
-     the register may need adjusting once the recipient is confirmed. Only
-     ask directly when the user says they're about to send the text and a
-     wrong register would actually matter.
-4. Fact-check separately: list the key facts/decisions (not every sentence)
-   with their source, placed AFTER the translation — don't interleave it
-   inside the prose.
-5. Words inserted only to make the Vietnamese grammatical (no corresponding
-   source token) → mark them clearly (e.g. square brackets `[...]`), don't let
-   them blend in as if sourced.
+     `"allow"` → use them normally; `"avoid"` → only (a) the confirmed party
+     name, or (b) drop the addressee noun (e.g. "ご確認をお願いいたします").
+     A project's `conventions.md` overrides both.
+   - Don't stop to ask who the recipient is just to pick a register on a draft;
+     translate with the defaults and add one line noting the register may need
+     adjusting once the recipient is confirmed. Ask only when the user is about
+     to send it and the register matters.
+5. Words added only for grammar (no source token) → mark them `[...]` in the
+   review copy so they don't pass as sourced.
+6. **Natural target language**: read the result as a native reader would. A
+   sentence that only makes sense if you know the source → rewrite it.
 
-## Batch processing (multiple independent units)
+## Second check (when available)
 
-Multiple independent emails/passages in the same request (e.g. "translate
-these 20 emails") → dispatch in parallel (spec section 11), one subagent per
-email/passage. Within one long email, still translate sequentially in the same
-context so tone + forms of address stay consistent. Each subagent reads
-`.brse/memory/long/parties.md` + `.brse/memory/long/glossary.md` itself before translating. The main
-agent aggregates the translations, dedupes newly-found terms, then asks the
-user once with one combined list. **Subagents never write to `.brse/memory/`
-themselves.**
+`/brse-toolkit:doctor` shows a second agent (codex / gemini) or a machine
+translation provider → have it back-translate the key passages (decisions,
+numbers, conditions) and compare the meaning with the source. Differences →
+fix or list them. None available → say the check was done by Claude only.
+
+## Batch processing
+
+Several independent emails / passages → one subagent per unit (spec section
+11); one long email stays in one context so tone and forms of address stay
+consistent. Each subagent reads `parties.md` + `glossary.md` itself. The main
+agent merges, dedupes new terms, asks the user once. **Subagents never write
+to `.brse/memory/` themselves.**
 
 ## After finishing a document
 
-Run `${CLAUDE_PLUGIN_ROOT}/skills/jp-vi-translate/scripts/check-consistency.py`
-on the `{term, translation_used}` list applied in the document — if there are
-`conflicts`, fix them for consistency before answering.
+1. Run `${CLAUDE_PLUGIN_ROOT}/skills/jp-vi-translate/scripts/check-consistency.py`
+   on the `{term, translation_used}` list used in the document; fix any
+   `conflicts`.
+2. New terms the user confirms → write them to
+   `.brse/memory/long/glossary.md` immediately.
 
-New terms confirmed while translating → write them to `.brse/memory/long/glossary.md`
-immediately (don't delay, see the CLAUDE.md rule).
+## Output
 
-## Before answering
+The translation (or the path of the translated copy), then:
+- **Key facts** — decisions, numbers, conditions, with their source, placed
+  after the translation, not inside it.
+- **Terms not in the glossary yet** — tentative translations to confirm.
+- **Checks run** — numbers/names compared, consistency script, second check.
 
-Apply `verify-output` — run
-`${CLAUDE_PLUGIN_ROOT}/skills/verify-output/scripts/lint-hedge-words.py` on the
-fact-check/notes section attached to the translation before sending.
+Run `verify-output` on the notes section.
