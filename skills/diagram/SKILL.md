@@ -41,13 +41,34 @@ from the closest one, or from an existing diagram in the project's sources.
 2. **Content from sources.** List every element and connection with its
    source (`kb-search.py`, code inventory, decisions-log). Assumed elements are
    labelled "要確認 / to confirm". Nothing is added for decoration.
-3. **Pick the base**:
-   - an existing project diagram (`.drawio` in the sources, or an image read
-     with `image-analyze`) → keep its structure and notation;
-   - otherwise `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/drawio-tool.py templates <filter>`
-     (e.g. `aws`, `network`, `swimlane`, `bpmn`, `timeline`) → copy one with
-     `drawio-tool.py template <name> <out.drawio>` into `config.paths.outputs`
-     and render it once to see it.
+2b. **Choose the kind of diagram from the question it must answer** — never a
+   default. Write the choice and the question at the top of your reply.
+
+   | Question to answer | Kind of diagram (`needs.type`) |
+   |---|---|
+   | What the system is made of, what connects to what, what flows between them | system view: boxes + labelled arrows (`system`) |
+   | Several people / systems work on one job: who does which step, in which order | flow split by who is responsible (`flow-lanes`) |
+   | One person or system goes through steps, with branches | simple flow, no lanes (`flow`) |
+   | Phases over time (preparation, cutover, operation) | timeline (`timeline`) |
+   | Which screen leads to which | screen transitions (`screens`) |
+   | Where servers, network, cloud parts are | infrastructure, from a draw.io template (`infrastructure`) |
+   | What changes | the SAME diagram as the current state, with changes marked — never a new layout |
+
+   Two questions → two diagrams. A sample from the user or the client
+   overrides this table.
+3. **Pick the base — only on measured grounds**: a sample from the user or
+   the client first. Otherwise write a needs file
+   (`{"type": "<kind above>", "kinds": [node kinds the diagram must show],
+   "groups": n, "elements": n}`) and run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/drawio-tool.py suggest <needs.json>`: it reads
+   every bundled template's content and ranks them by how many of the needed
+   icons each already has. Use the template only when its `decision` says so,
+   and state its `basis` (coverage) in the reply; "no template fits" → build
+   from scratch (step 7). Never pick a template by its name alone.
+   - A sample or an existing project diagram (`.drawio` in the sources, or an
+     image read with `image-analyze`) → keep its structure and notation.
+   - The template `suggest` chose → copy it with
+     `drawio-tool.py template <name> <out.drawio>` into `config.paths.outputs`.
 4. **Adapt by id**: `drawio-tool.py cells <file>` lists every element; write a
    changes JSON (`set` labels, `delete` what doesn't exist in this system —
    a group's contents go with it — `add` by cloning an element of the same

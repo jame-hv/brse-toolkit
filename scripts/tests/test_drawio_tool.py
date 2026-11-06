@@ -248,3 +248,24 @@ def test_reader_test_scores_what_an_image_only_reader_understood(tmp_path):
     assert r.returncode == 1 and out["reader_understood"]["changed"]["missed"] == ["重量検品"]
     assert out["reader_understood"]["order_inversions"] == 1
     assert "仕分先を指示" in out["reader_understood"]["steps_in_order"]["missed"]
+
+
+def test_suggest_ranks_by_what_the_template_already_has(tmp_path):
+    pre = "drawio/src/main/webapp/templates/"
+    icon = '<mxCell id="{i}" value="" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.{r};" vertex="1" parent="1"><mxGeometry x="{x}" y="0" width="60" height="60" as="geometry"/></mxCell>'
+    def tpl(icons):
+        body = "".join(icon.format(i=f"n{k}", r=r, x=k * 100) for k, r in enumerate(icons))
+        return compressed_mxfile(f'<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>{body}</root></mxGraphModel>').encode()
+    fake_asar(tmp_path / "app.asar", {pre + "cloud/aws/web.xml": tpl(["ec2", "rds", "s3"]),
+                                     pre + "cloud/aws/iot.xml": tpl(["camera", "greengrass"]),
+                                     pre + "network/empty.xml": tpl([])})
+    cfg = tmp_path / "cfg" / "brse-toolkit"
+    cfg.mkdir(parents=True)
+    (cfg / "config.json").write_text(json.dumps({"tools": {"paths": {"drawio-asar": str(tmp_path / "app.asar")}}}))
+    (tmp_path / "needs.json").write_text(json.dumps({"type": "infrastructure", "kinds": ["ec2", "rds", "sqs"], "elements": 4}))
+    out = json.loads(run_script("drawio-tool.py", "suggest", tmp_path / "needs.json", tmp=tmp_path, cwd=tmp_path).stdout)
+    assert out["suggestions"][0]["template"] == "cloud/aws/web" and out["suggestions"][0]["missing"] == ["sqs"]
+    assert out["decision"] == "use cloud/aws/web"
+    (tmp_path / "needs.json").write_text(json.dumps({"type": "infrastructure", "kinds": ["lambda", "sns"]}))
+    out = json.loads(run_script("drawio-tool.py", "suggest", tmp_path / "needs.json", tmp=tmp_path, cwd=tmp_path).stdout)
+    assert out["decision"] == "no template fits — build from scratch"

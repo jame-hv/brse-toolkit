@@ -3,6 +3,8 @@
 
 Usage:
   drawio-tool.py templates [filter]                    list the templates bundled with draw.io
+  drawio-tool.py catalog [filter|type]                 what each template contains (read from its XML)
+  drawio-tool.py suggest <needs.json>                  rank templates against what the diagram needs
   drawio-tool.py template <name> <out.drawio>          copy one (e.g. cloud/aws/aws_6) as editable XML
   drawio-tool.py cells <file.drawio>                   list shapes/edges: id, label, kind, parent
   drawio-tool.py edit <file> <changes.json> <out>      relabel / delete / add / connect by id
@@ -761,6 +763,108 @@ def score_reader_test(path, answers: dict) -> dict:
             "note": "every 'missed' or 'wrongly_seen' item is a place the image does not say what it should"}
 
 
+# ---------- choosing a template on measured grounds ----------
+TYPE_OF_CATEGORY = [  # template path prefix → diagram type
+    ("cloud/", "infrastructure"), ("network/", "infrastructure"),
+    ("business/swimlane", "flow-lanes"), ("business/bpmn", "flow-lanes"),
+    ("business/timeline", "timeline"), ("business/pert", "timeline"),
+    ("flowcharts/", "flow"), ("basic/flowchart", "flow"),
+    ("wireframes/", "screens"), ("software/", "system"), ("uml/", "system"),
+    ("business/", "business-model"), ("engineering/", "infrastructure"),
+]
+DIAGRAM_TYPES = ["system", "flow", "flow-lanes", "timeline", "screens", "infrastructure", "business-model"]
+
+
+def template_type(name: str) -> str:
+    return next((t for prefix, t in TYPE_OF_CATEGORY if name.startswith(prefix)), "other")
+
+
+def describe_template(name: str, doc: ET.Element) -> dict:
+    """What a template contains, read from its XML (no human description involved)."""
+    icons, vertices, edges, groups, lanes = set(), 0, 0, 0, 0
+    pos = {}
+    for c in cells(doc):
+        style = c.get("style", "")
+        if c.get("edge") == "1":
+            edges += 1
+            continue
+        if c.get("vertex") != "1":
+            continue
+        vertices += 1
+        for m in re.finditer(r"(?:resIcon|shape|grIcon)=mxgraph\.[\w]+\.([\w]+)", style):
+            icons.add(m.group(1))
+        if "container=1" in style or "group" in style.split(";")[0] or "grIcon=" in style:
+            groups += 1
+        if style.startswith("swimlane") or ";swimlane" in style:
+            lanes += 1
+        g = geometry(c)
+        if g:
+            pos[c.get("id")] = (g[0] + g[2] / 2, g[1] + g[3] / 2)
+    dx = dy = 0.0
+    for c in cells(doc):
+        a, b = pos.get(c.get("source")), pos.get(c.get("target"))
+        if c.get("edge") == "1" and a and b:
+            dx, dy = dx + abs(b[0] - a[0]), dy + abs(b[1] - a[1])
+    return {"name": name, "type": template_type(name), "icons": sorted(icons), "elements": vertices,
+            "edges": edges, "groups": groups, "lanes": lanes,
+            "direction": "left-to-right" if dx >= dy else "top-to-bottom"}
+
+
+def template_catalog(config) -> list:
+    asar = find_asar(config)
+    if not asar:
+        raise RuntimeError("draw.io's app.asar not found — cannot read templates")
+    cache = brse_common.data_dir() / "drawio-catalog.json"
+    stamp = f"{asar}:{Path(asar).stat().st_mtime}"
+    if cache.is_file():
+        data = json.loads(cache.read_text(encoding="utf-8"))
+        if data.get("stamp") == stamp:
+            return data["templates"]
+    files = asar_index(asar)
+    out = []
+    for n in sorted(files):
+        if n.startswith(TEMPLATE_PREFIX) and n.endswith(".xml") and not n.endswith("index.xml"):
+            name = n[len(TEMPLATE_PREFIX):-4]
+            try:
+                out.append(describe_template(name, decode_diagram(asar_read(asar, files, n).decode("utf-8"))))
+            except Exception as e:  # an unreadable template is listed as such, not dropped silently
+                out.append({"name": name, "type": template_type(name), "error": str(e)})
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps({"stamp": stamp, "templates": out}, ensure_ascii=False), encoding="utf-8")
+    return out
+
+
+def suggest_templates(needs: dict, catalog: list, top: int = 3) -> dict:
+    """needs = {"type": one of DIAGRAM_TYPES, "kinds": [node kinds the diagram must show],
+    "groups": n, "elements": n}. Score = share of needed icons the template already has,
+    minus a penalty for icons it has that are not needed and for a different number of
+    groups / elements. Below 0.5 coverage → no template, build from scratch."""
+    if needs.get("type") not in DIAGRAM_TYPES:
+        raise ValueError(f"needs.type must be one of {DIAGRAM_TYPES}")
+    want = {ICONS[k][1] if k in ICONS else CLIENTS.get(k, k) for k in needs.get("kinds", [])}
+    scored = []
+    for t in catalog:
+        if t.get("error") or t["type"] != needs["type"]:
+            continue
+        have = set(t["icons"])
+        coverage = len(want & have) / len(want) if want else 1.0
+        extra = len(have - want) / max(len(have), 1)
+        size_gap = abs(t["elements"] - needs.get("elements", t["elements"])) / max(t["elements"], 1)
+        group_gap = abs(t["groups"] - needs.get("groups", t["groups"]))
+        score = round(coverage - 0.3 * extra - 0.2 * min(size_gap, 1) - 0.1 * min(group_gap, 3), 3)
+        scored.append({"template": t["name"], "score": score, "coverage": round(coverage, 2),
+                       "has_needed": sorted(want & have), "missing": sorted(want - have),
+                       "unneeded_icons": len(have - want), "elements": t["elements"], "groups": t["groups"],
+                       "direction": t["direction"]})
+    scored.sort(key=lambda x: (-x["coverage"], -x["score"]))  # what it already has first, then fit
+    best = scored[:top]
+    fit = bool(best) and best[0]["coverage"] >= 0.5
+    return {"type": needs["type"], "considered": len(scored), "suggestions": best,
+            "decision": f"use {best[0]['template']}" if fit else "no template fits — build from scratch",
+            "basis": ("best match covers {:.0%} of the needed icons".format(best[0]["coverage"]) if best
+                      else "no template of this type")}
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args:
@@ -789,6 +893,12 @@ def main() -> None:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text(ET.tostring(doc, encoding="unicode"), encoding="utf-8")
                 out = {"template": name, "file": str(dest), "cells": len(list(cells(doc)))}
+        elif cmd == "catalog":
+            cat = template_catalog(config)
+            flt = args[1].lower() if len(args) > 1 else ""
+            out = [t for t in cat if flt in t["name"].lower() or flt == t.get("type")]
+        elif cmd == "suggest":
+            out = suggest_templates(json.loads(Path(args[1]).read_text(encoding="utf-8")), template_catalog(config))
         elif cmd == "kinds":
             out = {"semantic": sorted(SEMANTIC), "aws": sorted(ICONS), "clients": sorted(CLIENTS),
                    "groups": sorted(GROUPS), "plain": sorted(PLAIN), "statuses": sorted(STATUS),
