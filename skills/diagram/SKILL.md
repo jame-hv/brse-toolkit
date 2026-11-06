@@ -89,7 +89,7 @@ from the closest one, or from an existing diagram in the project's sources.
 | 3 | Correct: every box and arrow has a source whose quote really is in that document; unsourced ones are dashed | `check` (opens the documents) |
 | 4 | Complete: every system, person and step in the source section is on the diagram, or listed as left out with the reason | reviewer agent with the sources table and the documents |
 | 5 | Meaningful positions: computed (lanes = who, columns = order; or layered from the arrows) or taken from a template | `check` |
-| 6 | Readable: ≤ 15 elements, labels ≤ 2 short lines, one language, no abbreviations, every link between systems says what flows, no overlaps, no arrow through a box | `check` + look at the image |
+| 6 | Readable: ≤ 15 elements, labels ≤ 2 short lines, one language, no abbreviations, every link between systems says what flows, no overlaps, no arrow through a box; every label's wording reviewed | `check` + `wording.py run <file.drawio>` + look at the image |
 | 7 | Changes marked match the change table of the analysis, one by one | `check --changes <table.json>` |
 | 8 | Reader test: a fresh reviewer that sees **only the image** says who does what, in which order, and what changes — and gets it right | `reader-test` |
 

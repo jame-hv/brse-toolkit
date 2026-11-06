@@ -57,6 +57,14 @@ Never skipped because the task "looked simple".
    Diagrams: `drawio-tool.py check` passes (criteria 1, 2, 3, 5, 6, 7) and the
    reader test passes (criterion 8) — see the `diagram` skill.
    Text in another language: `lang-lint.py` with zero errors.
+5b. **Wording, sentence by sentence.** Save the reply text (and every
+   deliverable's text) to a file and run
+   `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/wording.py run <file> --reader "<who reads it>" --lang <language>`
+   (a `.drawio` file is reviewed label by label). Apply every `rewrite` it
+   returns, run it again, until it passes. No second model → run the plugin's
+   `wording-reviewer` agent on the printed prompt with no other context and
+   `wording.py parse` its reply. Your own reply to the user goes through this
+   too — not only deliverables.
 6. **Independent rubric review.** Save the user's request, the work (or its
    key parts) and the source excerpts it relies on to files and run
    `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/judge.py run <request> <work> <sources>`.

@@ -17,7 +17,10 @@ description: Review recent session logs (.brse/memory/short) and, with the user'
    confirmed, never the agent's own guesses:
    - **Terms** (a translation the user chose or corrected) → glossary.
    - **Conventions** (a formatting or writing rule the user stated or
-     corrected more than once) → conventions.
+     corrected more than once) → conventions. A sentence or label the user
+     rejected is saved as `- wording: "<what was written>" → "<what it should
+     say>" — <why> — source, date — status: active`; `wording.py` gives these
+     to the reviewer as the standard.
    - **Parties** (who is who, how to address them) → parties.
    - **Decisions** (scope, approach, assumptions the user settled) →
      decisions-log.
