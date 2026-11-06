@@ -88,25 +88,26 @@ def test_build_without_computed_layout_is_refused(tmp_path):
 
 def test_build_rejects_unknown_kind_and_bad_edges(tmp_path):
     lanes = [{"id": "l", "label": "L"}]
-    (tmp_path / "m.json").write_text(json.dumps({"layout": "swimlane", "lanes": lanes,
+    head = {"title": "t", "question": "q", "reader": "r"}
+    (tmp_path / "m.json").write_text(json.dumps({"layout": "swimlane", "lanes": lanes, **head,
                                                  "nodes": [{"id": "x", "kind": "mainframe", "lane": "l"}]}))
     r = run_script("drawio-tool.py", "build", tmp_path / "m.json", tmp_path / "a.drawio", tmp=tmp_path)
     assert r.returncode == 1 and "unknown kind" in r.stdout
-    (tmp_path / "m.json").write_text(json.dumps({"layout": "swimlane", "lanes": lanes,
+    (tmp_path / "m.json").write_text(json.dumps({"layout": "swimlane", "lanes": lanes, **head,
                                                  "nodes": [{"id": "x", "kind": "system", "lane": "l"}],
                                                  "edges": [{"source": "x", "target": "y"}]}))
     r = run_script("drawio-tool.py", "build", tmp_path / "m.json", tmp_path / "a.drawio", tmp=tmp_path)
     assert r.returncode == 1 and "unknown target" in r.stdout
 
 
-REF = {"file": "docs/spec.txt", "part": "page 3", "quote": "仕分"}
-SWIM = {"layout": "swimlane", "title": "現行業務フロー",
+REF = {"file": "docs/spec.txt", "part": "text", "quote": "仕分"}
+SWIM = {"layout": "swimlane", "title": "現行業務フロー", "question": "Ai làm gì, theo thứ tự nào", "reader": "BrSE",
         "lanes": [{"id": "op", "label": "作業者"}, {"id": "wcs", "label": "WCS"}, {"id": "wms", "label": "WMS"}],
         "nodes": [{"id": "s1", "kind": "step", "label": "入荷", "lane": "op", "col": 0, "ref": REF},
-                  {"id": "s2", "kind": "device", "label": "HTでJAN読取", "lane": "op", "col": 1, "ref": REF},
-                  {"id": "s3", "kind": "system", "label": "仕分先を指示", "lane": "wcs", "col": 1, "ref": REF},
+                  {"id": "s2", "kind": "step", "label": "JAN読取", "lane": "op", "col": 1, "ref": REF},
+                  {"id": "s3", "kind": "step", "label": "仕分先を指示", "lane": "wcs", "col": 1, "ref": REF},
                   {"id": "s4", "kind": "step", "label": "重量検品", "lane": "op", "col": 2, "status": "changed", "ref": REF},
-                  {"id": "s5", "kind": "system", "label": "実績受信", "lane": "wms", "col": 3, "status": "new", "ref": REF}],
+                  {"id": "s5", "kind": "step", "label": "実績受信", "lane": "wms", "col": 3, "status": "new", "ref": REF}],
         "edges": [{"source": "s1", "target": "s2", "ref": REF}, {"source": "s2", "target": "s3", "label": "JAN", "ref": REF},
                   {"source": "s3", "target": "s4", "ref": REF},
                   {"source": "s4", "target": "s5", "label": "実績", "status": "new", "ref": REF}]}
@@ -137,7 +138,7 @@ def test_swimlane_positions_nodes_in_their_lane_and_column(tmp_path):
 
 
 def test_lint_flags_long_and_mixed_labels_and_silent_interfaces(tmp_path):
-    model = {"layout": "swimlane", "lanes": [{"id": "l", "label": "L"}],
+    model = {"layout": "swimlane", "title": "t", "question": "q", "reader": "r", "lanes": [{"id": "l", "label": "L"}],
              "nodes": [{"id": "a", "kind": "system", "label": "WMS (テクニカル・ユニオン) Nhận đơn từ cửa hàng", "lane": "l", "col": 0, "ref": REF},
                        {"id": "b", "kind": "system", "label": "WCS", "lane": "l", "col": 1, "ref": REF},
                        {"id": "c", "kind": "step", "label": "1<br>2<br>3<br>4", "lane": "l", "col": 2, "ref": REF}],
@@ -160,7 +161,7 @@ def test_element_without_source_is_drawn_unconfirmed_and_listed(tmp_path):
     table = (tmp_path / "a.drawio.sources.md").read_text(encoding="utf-8")
     assert "no source — drawn as unconfirmed" in table and "重量検品" in table
     claims = json.loads((tmp_path / "a.drawio.claims.json").read_text(encoding="utf-8"))
-    assert len(claims) == 7 and claims[0]["locator"] == {"part": "page 3"}
+    assert len(claims) == 7 and claims[0]["locator"] == {"part": "text"}
 
 
 def test_unknown_lane_or_status_is_rejected(tmp_path):
@@ -186,3 +187,64 @@ def test_edit_brings_an_icon_over_from_another_diagram(tmp_path):
     assert r["added"] == ["s1"] and r["missing_ids"] == [f"{tmp_path / 'other.drawio'}#nope"]
     xml = (tmp_path / "o.drawio").read_text(encoding="utf-8")
     assert "mxgraph.aws4.iot_sensor" in xml and "重量計" in xml
+
+
+def workspace_with_source(tmp_path):
+    (tmp_path / ".brse").mkdir()
+    (tmp_path / ".brse" / "config.json").write_text(json.dumps({"paths": {"sources": ["docs/"]}}))
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "spec.txt").write_text("仕分指示を受信する", encoding="utf-8")
+
+
+def check(tmp_path, *extra):
+    r = run_script("drawio-tool.py", "check", tmp_path / "a.drawio", *extra, tmp=tmp_path, cwd=tmp_path)
+    return r.returncode, json.loads(r.stdout)
+
+
+def test_check_passes_a_good_flow_against_its_change_table(tmp_path):
+    workspace_with_source(tmp_path)
+    build(tmp_path, SWIM)
+    (tmp_path / "chg.json").write_text(json.dumps([{"id": "s4", "status": "changed"}, {"id": "s5", "status": "new"},
+                                                   {"id": "e3", "status": "new"}]))
+    code, out = check(tmp_path, "--changes", tmp_path / "chg.json")
+    assert code == 0, out
+    assert out["criteria"]["3_correct"]["detail"]["claims_checked"] == 9
+    assert out["criteria"]["8_reader_test"]["pass"] is None
+
+
+def test_check_fails_mixed_view_wrong_quote_and_mismatched_changes(tmp_path):
+    workspace_with_source(tmp_path)
+    model = json.loads(json.dumps(SWIM))
+    model["nodes"][1]["kind"] = "device"                                  # a device inside a business flow
+    model["nodes"][0]["ref"] = {"file": "docs/spec.txt", "part": "", "quote": "存在しない文"}  # quote not in source
+    build(tmp_path, model)
+    (tmp_path / "chg.json").write_text(json.dumps([{"id": "s4", "status": "changed"}]))
+    code, out = check(tmp_path, "--changes", tmp_path / "chg.json")
+    c = out["criteria"]
+    assert code == 1 and not c["2_one_view"]["pass"] and not c["3_correct"]["pass"] and not c["7_changes"]["pass"]
+    assert c["7_changes"]["detail"]["drawn_not_in_table"] == ["e3", "s5"]
+
+
+def test_build_requires_purpose(tmp_path):
+    model = json.loads(json.dumps(SWIM))
+    del model["question"]
+    r, _ = build(tmp_path, model)
+    assert r.returncode == 1 and "criterion 1" in r.stdout
+
+
+def test_reader_test_scores_what_an_image_only_reader_understood(tmp_path):
+    build(tmp_path, SWIM)
+    made = json.loads(run_script("drawio-tool.py", "reader-test", tmp_path / "a.drawio", tmp=tmp_path).stdout)
+    assert "ONLY the attached image" in open(made["prompt_file"], encoding="utf-8").read()
+    good = {"who": ["作業者", "WCS", "WMS"], "steps_in_order": ["入荷", "JAN読取", "仕分先を指示", "重量検品", "実績受信"],
+            "changed": ["重量検品"], "new": ["実績受信"], "removed": [], "unconfirmed": []}
+    (tmp_path / "ans.json").write_text(json.dumps(good, ensure_ascii=False), encoding="utf-8")
+    r = run_script("drawio-tool.py", "reader-test", tmp_path / "a.drawio", "--score", tmp_path / "ans.json", tmp=tmp_path)
+    assert r.returncode == 0, r.stdout
+    bad = dict(good, steps_in_order=["JAN読取", "入荷", "重量検品"], changed=[])
+    (tmp_path / "ans.json").write_text(json.dumps(bad, ensure_ascii=False), encoding="utf-8")
+    r = run_script("drawio-tool.py", "reader-test", tmp_path / "a.drawio", "--score", tmp_path / "ans.json", tmp=tmp_path)
+    out = json.loads(r.stdout)
+    assert r.returncode == 1 and out["reader_understood"]["changed"]["missed"] == ["重量検品"]
+    assert out["reader_understood"]["order_inversions"] == 1
+    assert "仕分先を指示" in out["reader_understood"]["steps_in_order"]["missed"]

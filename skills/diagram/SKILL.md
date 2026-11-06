@@ -80,7 +80,35 @@ from the closest one, or from an existing diagram in the project's sources.
    script.**
 8. No draw.io available → Mermaid text, clearly marked as not rendered.
 
+## Acceptance — a diagram is shown to the user only when all 8 pass
+
+| # | Criterion | Checked by |
+|---|---|---|
+| 1 | Purpose: the title says what question it answers; the model states `question` and `reader` | `check` |
+| 2 | One view per diagram: a system view (who connects to whom, what flows) **or** a business flow (who does what, in order) — never both | `check` |
+| 3 | Correct: every box and arrow has a source whose quote really is in that document; unsourced ones are dashed | `check` (opens the documents) |
+| 4 | Complete: every system, person and step in the source section is on the diagram, or listed as left out with the reason | reviewer agent with the sources table and the documents |
+| 5 | Meaningful positions: computed (lanes = who, columns = order; or layered from the arrows) or taken from a template | `check` |
+| 6 | Readable: ≤ 15 elements, labels ≤ 2 short lines, one language, no abbreviations, every link between systems says what flows, no overlaps, no arrow through a box | `check` + look at the image |
+| 7 | Changes marked match the change table of the analysis, one by one | `check --changes <table.json>` |
+| 8 | Reader test: a fresh reviewer that sees **only the image** says who does what, in which order, and what changes — and gets it right | `reader-test` |
+
+Commands:
+- `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/drawio-tool.py check <file.drawio> --changes <changes.json>`
+  (changes.json = `[{"id": "<element id>", "status": "changed|new|removed"}]`,
+  the same items as the analysis' change table). Exit 1 = a criterion failed;
+  fix the model, rebuild, check again.
+- Criterion 8: `drawio-tool.py reader-test <file.drawio>` writes the question
+  prompt; export the PNG; give **only the PNG and that prompt** to the plugin's
+  `reviewer` agent (or a second model) with no other context; save its JSON
+  answer; `drawio-tool.py reader-test <file.drawio> --score <answers.json>`.
+  Every `missed` / `wrongly_seen` item is a place the picture does not say
+  what it should — fix the diagram, not the answer.
+- Criterion 4: give the reviewer the `.sources.md` table and the source
+  section; it lists anything in the source missing from the diagram.
+
 ## Output
 
-`.drawio` + `.png` paths, a table element → source, what is marked "to
-confirm", the lint result. Then `review-gate`.
+`.png` + `.drawio` paths, the sources table, and one line per criterion
+(pass / fail and why). A failed criterion is fixed before showing, or stated
+first if it cannot be fixed. Then `review-gate`.

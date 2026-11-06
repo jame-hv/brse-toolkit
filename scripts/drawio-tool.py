@@ -20,6 +20,7 @@ import sys
 
 sys.dont_write_bytecode = True
 import base64
+import importlib.util
 import copy
 import json
 import os
@@ -291,9 +292,9 @@ def cmd_lint(path):
         if not text or k in ("title", "legend", "lane", "note") or v.get("style", "").startswith("text;"):
             continue
         lines = [x for x in re.split(r"<br\s*/?>|\n", v.get("value", "")) if re.sub(r"<[^>]+>", "", x).strip()]
-        if len(lines) > 3 or any(len(re.sub(r"<[^>]+>", "", x).strip()) > 28 for x in lines):
+        if len(lines) > 2 or any(len(re.sub(r"<[^>]+>", "", x).strip()) > 28 for x in lines):
             findings.append({"rule": "long-label", "id": v.get("id"), "label": text[:60],
-                             "note": "max 3 lines of ~28 characters — put details in a table next to the diagram"})
+                             "note": "max 2 lines of ~28 characters — put details in a table next to the diagram"})
         if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", text) and re.search(
                 r"[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", text, re.I):
             findings.append({"rule": "mixed-language-label", "id": v.get("id"), "label": text[:60]})
@@ -426,11 +427,12 @@ def with_status(style: str, status, kind: str, edge=False) -> str:
     if status not in STATUS:
         raise ValueError(f"unknown status {status!r}; known: {', '.join(STATUS)}")
     node_add, edge_add, _ = STATUS[status]
+    tag = f"brseStatus={status};"
     if edge:
-        return style + edge_add
+        return style + edge_add + tag
     if kind in ICONS or kind in CLIENTS:  # keep the icon colours, mark the outline only
-        return style + "strokeColor=#D6001C;strokeWidth=3;" if status == "changed" else style + edge_add
-    return style + node_add
+        return style + ("strokeColor=#D6001C;strokeWidth=3;" if status == "changed" else edge_add) + tag
+    return style + node_add + tag
 
 
 def swimlane_positions(model: dict) -> dict:
@@ -491,7 +493,11 @@ def cmd_build(model: dict, out):
         raise ValueError("groups need hand positions; use a draw.io template (drawio-tool.py templates) instead")
     mx = ET.Element("mxfile")
     d = ET.SubElement(mx, "diagram", name=model.get("name", "Page-1"))
-    m = ET.SubElement(d, "mxGraphModel", grid="0", page="1", background="#ffffff")
+    for key in ("title", "question", "reader"):
+        if not model.get(key):
+            raise ValueError(f"model needs '{key}': what the diagram answers and for whom (criterion 1)")
+    m = ET.SubElement(d, "mxGraphModel", grid="0", page="1", background="#ffffff",
+                      brseLayout=layout, brseQuestion=model["question"], brseReader=model["reader"])
     root = ET.SubElement(m, "root")
     ET.SubElement(root, "mxCell", id="0")
     ET.SubElement(root, "mxCell", id="1", parent="0")
@@ -613,6 +619,148 @@ def bake_layout(path, direction):
         shutil.rmtree(stage, ignore_errors=True)
 
 
+# ---------- acceptance criteria ----------
+FLOW_KINDS = {"step", "decision", "start", "end"}
+SYSTEM_KINDS = {"system", "external-system", "module", "datastore", "device", "equipment", "file"} | set(ICONS) | set(CLIENTS)
+SKIP_KINDS = {"lane", "legend", "title", "note", "box", "todo", "actor"} | set(GROUPS)
+MAX_ELEMENTS = 15
+BLOCKING_LINT = {"overlap", "long-label", "mixed-language-label", "unlabeled-interface", "orphan",
+                 "dangling-edge", "loose-edge"}
+
+
+def norm_label(text: str) -> str:
+    import unicodedata
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text or "")).lower()
+
+
+def diagram_elements(doc):
+    """(nodes, edges): nodes = [{id, kind, status, label, x, y}], edges = [{id, source, target, label, status}]."""
+    nodes, edges = [], []
+    for c in cells(doc):
+        style = c.get("style", "")
+        kind = (re.search(r"brseKind=([\w-]+)", style) or [None, None])[1]
+        status = (re.search(r"brseStatus=([\w-]+)", style) or [None, None])[1]
+        if c.get("edge") == "1":
+            edges.append({"id": c.get("id"), "source": c.get("source"), "target": c.get("target"),
+                          "label": label(c), "status": status})
+        elif c.get("vertex") == "1":
+            g = geometry(c) or (0, 0, 0, 0)
+            nodes.append({"id": c.get("id"), "kind": kind, "status": status, "label": label(c), "x": g[0], "y": g[1]})
+    return nodes, edges
+
+
+def cmd_check(path, changes=None) -> dict:
+    """Criteria 1, 2, 3, 5, 6, 7 by machine; 4 and 8 need a reviewer (see reader-test)."""
+    doc = load(path)
+    model = doc.find(".//mxGraphModel")
+    nodes, edges = diagram_elements(doc)
+    content = [n for n in nodes if n["kind"] not in SKIP_KINDS and not (n["id"] or "").startswith("brse-")]
+    crit = {}
+    has_title = any(n["kind"] == "title" for n in nodes)
+    crit["1_purpose"] = {"pass": bool(model.get("brseQuestion")) and has_title,
+                         "detail": {"question": model.get("brseQuestion"), "reader": model.get("brseReader"),
+                                    "title": has_title}}
+    flow = sorted({n["kind"] for n in content if n["kind"] in FLOW_KINDS})
+    system = sorted({n["kind"] for n in content if n["kind"] in SYSTEM_KINDS})
+    crit["2_one_view"] = {"pass": not (flow and system),
+                          "detail": "mixes business-flow steps and system parts" if flow and system else
+                          ("business flow" if flow else "system view")}
+    claims_file = Path(str(path) + ".claims.json")
+    sources_file = Path(str(path) + ".sources.md")
+    if claims_file.is_file():
+        spec = importlib.util.spec_from_file_location("vc", brse_common.ROOT / "scripts" / "verify-claims.py")
+        vc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(vc)
+        root, _ = brse_common.workspace(".")
+        root = root or Path(".").resolve()
+        convert = vc.converter()
+        results = [vc.check(c, root, convert) for c in json.loads(claims_file.read_text(encoding="utf-8"))]
+        bad = [r for r in results if r["status"] != "ok"]
+        unsourced = sources_file.read_text(encoding="utf-8").count("no source") if sources_file.is_file() else 0
+        crit["3_correct"] = {"pass": not bad, "detail": {"claims_checked": len(results), "not_ok": bad,
+                                                         "drawn_as_unconfirmed": unsourced}}
+    else:
+        crit["3_correct"] = {"pass": False, "detail": "no claims file — build the diagram with drawio-tool.py build "
+                                                      "(every element with a ref) or list its sources by hand"}
+    layout = model.get("brseLayout") or model.get("brseTemplate")
+    crit["5_layout"] = {"pass": layout in ("swimlane", "auto") or bool(model.get("brseTemplate")),
+                        "detail": layout or "positions not computed (hand-placed)"}
+    findings = [f for f in cmd_lint(path) if f["rule"] in BLOCKING_LINT]
+    crit["6_readable"] = {"pass": len(content) <= MAX_ELEMENTS and not findings,
+                          "detail": {"elements": len(content), "max": MAX_ELEMENTS, "problems": findings}}
+    marked = {n["id"]: n["status"] for n in content if n["status"]}
+    marked.update({e["id"]: e["status"] for e in edges if e["status"]})
+    marked = {k: v for k, v in marked.items() if v != "unconfirmed"}
+    if changes is None:
+        crit["7_changes"] = {"pass": not marked,
+                             "detail": "statuses drawn but no change table given (--changes)" if marked else "no changes drawn"}
+    else:
+        want = {c["id"]: c["status"] for c in changes}
+        crit["7_changes"] = {"pass": want == marked, "detail": {
+            "in_table_not_drawn": sorted(set(want) - set(marked)),
+            "drawn_not_in_table": sorted(set(marked) - set(want)),
+            "status_differs": sorted(k for k in set(want) & set(marked) if want[k] != marked[k])}}
+    crit["4_complete"] = {"pass": None, "detail": "reviewer: compare the sources table with the source documents"}
+    crit["8_reader_test"] = {"pass": None, "detail": "run drawio-tool.py reader-test, then --score"}
+    return {"pass": all(c["pass"] for c in crit.values() if c["pass"] is not None), "criteria": crit}
+
+
+def expected_reading(path) -> dict:
+    doc = load(path)
+    nodes, _ = diagram_elements(doc)
+    lanes = [n for n in nodes if n["kind"] == "lane"]
+    content = [n for n in nodes if n["kind"] not in SKIP_KINDS and not (n["id"] or "").startswith("brse-")]
+    who = [n["label"] for n in sorted(lanes, key=lambda n: n["y"])] or \
+          [n["label"] for n in content if n["kind"] in SYSTEM_KINDS | {"actor"}]
+    steps = [n["label"] for n in sorted(content, key=lambda n: (n["x"], n["y"])) if n["kind"] in FLOW_KINDS]
+    by_status = {st: sorted(n["label"] for n in content if n["status"] == st) for st in STATUS}
+    return {"who": who, "steps_in_order": steps, **by_status}
+
+
+def make_reader_test(path) -> dict:
+    model = load(path).find(".//mxGraphModel")
+    prompt = f"""You see ONLY the attached image of a diagram — no other document. Answer from the image alone.
+If something is not readable on the image, leave it out; do not guess.
+
+Answer with ONLY this JSON:
+{{"question_answered": "<what question does this diagram answer, in one sentence>",
+  "who": ["<each person, team or system that has its own lane or box, as written>"],
+  "steps_in_order": ["<each step, as written, in the order they happen>"],
+  "changed": ["<elements marked as changed>"], "new": ["<marked as new>"],
+  "removed": ["<marked as removed>"], "unconfirmed": ["<marked as to confirm>"]}}
+"""
+    p = Path(str(path) + ".reader-test.md")
+    p.write_text(prompt, encoding="utf-8")
+    return {"prompt_file": str(p), "image": "export the diagram to PNG and give ONLY that image + prompt to a "
+            "fresh reviewer (the plugin's reviewer agent, or a second model); save its JSON and run "
+            "drawio-tool.py reader-test <file> --score <answers.json>",
+            "intended_question": model.get("brseQuestion")}
+
+
+def score_reader_test(path, answers: dict) -> dict:
+    exp = expected_reading(path)
+    out, ok = {}, True
+
+    def found(lbl, pool):
+        n = norm_label(lbl)
+        return any(n and (n in norm_label(p) or norm_label(p) in n) for p in pool)
+
+    for key in ["who", "steps_in_order"] + list(STATUS):
+        want, got = exp.get(key, []), answers.get(key, [])
+        missed = [w for w in want if not found(w, got)]
+        extra = [g for g in got if not found(g, want)] if key in STATUS else []
+        out[key] = {"expected": want, "missed": missed, "wrongly_seen": extra}
+        if missed or extra:
+            ok = False
+    order_got = [g for g in answers.get("steps_in_order", []) if found(g, exp["steps_in_order"])]
+    pos = [next(i for i, w in enumerate(exp["steps_in_order"]) if found(w, [g])) for g in order_got]
+    swaps = sum(1 for a, b in zip(pos, pos[1:]) if b < a)
+    out["order_inversions"] = swaps
+    ok = ok and swaps == 0
+    return {"pass": ok, "reader_understood": out, "question_answered": answers.get("question_answered"),
+            "note": "every 'missed' or 'wrongly_seen' item is a place the image does not say what it should"}
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args:
@@ -636,6 +784,8 @@ def main() -> None:
                 if name not in names:
                     raise RuntimeError(f"no template {name!r}; list them with: drawio-tool.py templates")
                 doc = decode_diagram(asar_read(asar, files, TEMPLATE_PREFIX + name + ".xml").decode("utf-8"))
+                for mgm in doc.iter("mxGraphModel"):
+                    mgm.set("brseTemplate", name)
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text(ET.tostring(doc, encoding="unicode"), encoding="utf-8")
                 out = {"template": name, "file": str(dest), "cells": len(list(cells(doc)))}
@@ -651,6 +801,22 @@ def main() -> None:
             out = cmd_edit(args[1], json.loads(Path(args[2]).read_text(encoding="utf-8")), args[3])
         elif cmd == "lint":
             out = {"findings": cmd_lint(args[1])}
+        elif cmd == "check":
+            changes = json.loads(Path(args[args.index("--changes") + 1]).read_text(encoding="utf-8")) \
+                if "--changes" in args else None
+            out = cmd_check(args[1], changes)
+            if not out["pass"]:
+                print(json.dumps(out, ensure_ascii=False, indent=2))
+                sys.exit(1)
+        elif cmd == "reader-test":
+            if "--score" in args:
+                i = args.index("--score")
+                out = score_reader_test(args[1], json.loads(Path(args[i + 1]).read_text(encoding="utf-8")))
+                if not out["pass"]:
+                    print(json.dumps(out, ensure_ascii=False, indent=2))
+                    sys.exit(1)
+            else:
+                out = make_reader_test(args[1])
         elif cmd == "export":
             layout = args[args.index("--layout") + 1] if "--layout" in args else None
             out = cmd_export(args[1], args[2], layout, config)

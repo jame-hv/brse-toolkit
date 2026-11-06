@@ -54,7 +54,8 @@ Never skipped because the task "looked simple".
    and is named), (c) `<py> ${CLAUDE_PLUGIN_ROOT}/scripts/office.py render <copy> <dir>`
    and look at every image — overflow, fonts, colours, merged cells, images,
    shapes; .xlsx written through a library → `office.py check <copy>` too.
-   Diagrams: `drawio-tool.py lint` clean and the exported PNG looked at.
+   Diagrams: `drawio-tool.py check` passes (criteria 1, 2, 3, 5, 6, 7) and the
+   reader test passes (criterion 8) — see the `diagram` skill.
    Text in another language: `lang-lint.py` with zero errors.
 6. **Independent rubric review.** Save the user's request, the work (or its
    key parts) and the source excerpts it relies on to files and run
