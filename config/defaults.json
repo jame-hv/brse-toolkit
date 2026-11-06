@@ -57,6 +57,7 @@
   "quality": {
     "min_scores": {}
   },
+  "secrets": {},
   "memory": {
     "auto_log_session": true,
     "short_retention_days": 30

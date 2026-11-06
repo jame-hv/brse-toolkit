@@ -115,3 +115,15 @@ def test_mt_reads_key_from_secrets_file_and_plugin_option(ws, tmp_path):
     run_script("mt.py", text, "--to", "vi", ws, tmp=tmp_path, env=env)
     server.server_close()
     assert FakeDeepL.seen["auth"] == "DeepL-Auth-Key from-keychain"  # plugin option beats the file
+
+
+def test_mt_reads_key_from_workspace_local_config(ws, tmp_path):
+    server = HTTPServer(("127.0.0.1", 0), FakeDeepL)
+    threading.Thread(target=server.handle_request, daemon=True).start()
+    (ws / ".brse" / "config.local.json").write_text(json.dumps({"secrets": {"DEEPL_API_KEY": "from-local"}}))
+    text = tmp_path / "t.txt"
+    text.write_text("確認", encoding="utf-8")
+    env = {"DEEPL_API_KEY": "", "BRSE_DEEPL_URL": f"http://127.0.0.1:{server.server_port}/"}
+    run_script("mt.py", text, "--to", "vi", ws, tmp=tmp_path, env=env, cwd=ws)
+    server.server_close()
+    assert FakeDeepL.seen["auth"] == "DeepL-Auth-Key from-local"

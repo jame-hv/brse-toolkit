@@ -52,15 +52,25 @@ from the closest one, or from an existing diagram in the project's sources.
    changes JSON (`set` labels, `delete` what doesn't exist in this system —
    a group's contents go with it — `add` by cloning an element of the same
    kind so styles and icons stay consistent, `connect` new flows) and run
-   `drawio-tool.py edit`. Iterate in small steps.
+   `drawio-tool.py edit`. An icon that only exists in another template or
+   diagram: `add` with `"from": "template:<name>"` or `"from": "<file.drawio>"`.
+   Iterate in small steps. Never stop to ask the user how the plugin's tools
+   work — if a tool truly cannot do something, say what is missing in one line
+   and draw the closest correct version.
 5. **Lint**: `drawio-tool.py lint <file>` — no orphans, no dangling or loose
    edges, no overlaps; duplicate labels only where intended.
 6. **Render and look**: `drawio-tool.py export <file> <out.png>` (handles
    draw.io's snap sandbox). Open the PNG: every label readable and in the
    right language, arrows point the right way, nothing cut off, the picture
    answers step 1. Fix and repeat until it does.
-7. **No template fits** (e.g. a plain 3-tier web system): write a model JSON
-   and run `drawio-tool.py build <model.json> <out.drawio>` — groups
+7. **No template fits**: write a model JSON and run
+   `drawio-tool.py build <model.json> <out.drawio>`. Positions are never typed:
+   `"layout": "swimlane"` (lane = who does it, `col` = order of the step — for
+   business flows) or `"layout": "auto"` (layered from the arrows — for system
+   overviews). Every node and edge carries `"ref": {"file", "part", "quote"}`
+   from the documents; without one it is drawn dashed as unconfirmed. The
+   build writes `<out>.sources.md` (show it next to the diagram) and
+   `<out>.claims.json` (run `verify-claims.py` on it). Kinds — groups
    (`aws-cloud`, `region`, `vpc`, `public-subnet`, `private-subnet`,
    `datacenter`, `account`), nodes by kind (`drawio-tool.py kinds`: alb, ec2,
    rds, s3, sqs, lambda, ecs, cloudfront, waf, pc, mobile, users, server…,

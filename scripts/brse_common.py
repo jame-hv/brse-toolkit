@@ -52,14 +52,21 @@ def secrets_file() -> Path:
 
 
 def secret(env_name: str):
-    """API key lookup, never from project files: environment variable → plugin
-    userConfig (Claude Code exposes it as CLAUDE_PLUGIN_OPTION_<NAME>, stored in
-    the OS keychain) → ~/.config/brse-toolkit/secrets.env (written by set-key.py)."""
+    """API key lookup: environment variable → plugin userConfig (Claude Code exposes it
+    as CLAUDE_PLUGIN_OPTION_<NAME>, stored in the OS keychain) → the workspace's
+    .brse/config.local.json "secrets" (git-ignored, never printed by brse-config.py)
+    → ~/.config/brse-toolkit/secrets.env (written by set-key.py)."""
     if not env_name:
         return None
     for name in (env_name, f"CLAUDE_PLUGIN_OPTION_{env_name.upper()}"):
         if os.environ.get(name):
             return os.environ[name]
+    try:
+        local = resolve(Path.cwd())["config"].get("secrets", {}).get(env_name)
+        if local:
+            return local
+    except ValueError:
+        pass
     f = secrets_file()
     if f.is_file():
         for line in f.read_text(encoding="utf-8").splitlines():

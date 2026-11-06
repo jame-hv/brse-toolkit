@@ -58,6 +58,15 @@ its CLI and record the path:
 - Write the working path to `tools.paths.<id>` in
   `~/.config/brse-toolkit/config.json` (merge, don't overwrite).
 
+**API keys** (OpenAI, DeepL): never ask the user to paste a key into the chat
+— anything in the conversation is stored with it. Three places, all read by the
+plugin without ever printing the key: `claude plugin configure
+brse-toolkit@brse-toolkit` (operating-system keychain), the workspace's
+git-ignored `.brse/config.local.json` under `"secrets": {"OPENAI_API_KEY": "…"}`
+(the user edits it in their own editor), or
+`python3 <plugin>/scripts/set-key.py OPENAI_API_KEY` run in their own terminal.
+A hook refuses any tool call that opens these files directly.
+
 **codex / gemini**: after installing, the user signs in themselves
 (`codex login`, `gemini`), or sets an API key as an environment variable in
 their own shell profile — tell them which variable name the config expects

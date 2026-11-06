@@ -50,13 +50,13 @@ def write(tmp_path, name, text):
 
 def test_judge_parse_applies_thresholds(ws, tmp_path):
     good = write(tmp_path, "good.txt", 'ok {"scores": {"correctness": 5, "completeness": 4, "logic": 4, '
-                 '"evidence": 4, "language": 4, "scope": 5}, "must_fix": []}')
+                 '"evidence": 4, "language": 4, "scope": 5, "reader": 4}, "must_fix": []}')
     r = run_script("judge.py", "parse", good, "--project", ws, tmp=tmp_path)
     assert r.returncode == 0 and json.loads(r.stdout)["pass"] is True
     weak = write(tmp_path, "weak.txt", '{"scores": {"correctness": 3, "completeness": 4, "logic": 4, '
-                 '"evidence": 2, "language": 4, "scope": 5}, "must_fix": ["D4 cited wrongly"]}')
+                 '"evidence": 2, "language": 4, "scope": 5, "reader": 2}, "must_fix": ["D4 cited wrongly"]}')
     out = json.loads(run_script("judge.py", "parse", weak, "--project", ws, tmp=tmp_path).stdout)
-    assert out["pass"] is False and out["failed"] == {"correctness": 3, "evidence": 2}
+    assert out["pass"] is False and out["failed"] == {"correctness": 3, "evidence": 2, "reader": 2}
     assert out["must_fix"] == ["D4 cited wrongly"]
 
 
@@ -92,3 +92,4 @@ def test_lang_lint_clean_text_passes(tmp_path):
     ja = write(tmp_path, "ok.txt", "本書は検索機能の設計を示します。初回リリースの対象です。")
     r = run_script("lang-lint.py", ja, "--lang", "ja")
     assert r.returncode == 0 and json.loads(r.stdout)["findings"] == []
+

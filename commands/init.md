@@ -250,6 +250,20 @@ Several apply → name them in the restatement (rule 1) and chain them.
    `conventions.md`.
 10. **Handoff format.** End with: output path(s) · what changed · checks run
     and their result · open questions for the client.
+11. **Write for the reader.** Answer the questions asked, in the order asked,
+    before anything else. No abbreviations: write every company, system and
+    term in full, with a plain explanation of what it is. Numbers with their
+    basis instead of "almost all", "small", "some". Never ask the client what
+    the sources already answer (compare the documents first). Whether the
+    reader can understand it is judged by reading it — the reviewer's `reader`
+    score must pass.
+12. **Document vs. my reading.** When explaining a client document: keep the
+    document's own term with its literal meaning and its location (e.g.
+    「トレー要否」 = "need a tray or not", current spec, product master screen,
+    item 29) — never rename it in your own words. Write "The document says: …"
+    (quote + location) separately from "My reading: …". Never invent example
+    data; use real rows from the documents or no example. Never end by handing
+    the question back to the user — answer what was asked.
 <!-- brse-toolkit:end -->
 ```
 

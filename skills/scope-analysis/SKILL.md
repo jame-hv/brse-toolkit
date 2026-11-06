@@ -41,6 +41,22 @@ Step 2–4 of `/brse-toolkit:estimate-project`.
    / schedule) · requirement (one sentence, client's wording) · source ref ·
    quantity if stated. Internal documents may add *assumptions*, never
    requirements.
+2b. **Explain the current business first** — before any gap or question, write
+   for the user (who may know nothing of this domain): who the parties are
+   (client, end client, other vendors — one line each), what each system does,
+   and the current business flow step by step, with a `diagram` swimlane (one
+   lane per person / system). No abbreviations. Every domain term keeps the
+   document's own word, with its literal meaning and location — never a name
+   you made up. Separate "the document says" (quote + location) from "my
+   reading". No invented example data. Keep a term table at the end
+   (term as written · literal meaning · where it appears).
+2c. **Change table, with numbers** — for each requested change: current
+   behaviour → requested behaviour → objects that change, **counted** (screens
+   new / changed-major / changed-minor / removed, interfaces, DB tables/columns,
+   reports, batches) → what drives the effort → assumptions. Count by comparing
+   documents yourself: when an old and a new spec exist, diff them screen by
+   screen (`cross-check`) — never write "almost all" or "small", and never ask the
+   client for something a comparison of the sources answers.
 3. **Gap list** `G-001…`, checked against every category above:
    - ambiguous — two readings are possible (quote both);
    - contradictory — two documents disagree (cite both);
@@ -50,6 +66,9 @@ Step 2–4 of `/brse-toolkit:estimate-project`.
    - implicit — something every vendor would assume; make it explicit.
    Each gap: what is unclear, why it changes the estimate (direction and
    rough size), and the default assumption we would take if unanswered.
+   **A gap that does not change the effort is not a question** — it is a design
+   detail for later. A gap the sources can close (another document, an older
+   spec, the code) is closed by reading them, not by asking.
 4. **Gate**: show the requirement list and gap list; the user confirms or edits
    before any question is written.
 5. **Q&A sheet**: one question per confirmed gap, in the client's language
@@ -65,8 +84,14 @@ Step 2–4 of `/brse-toolkit:estimate-project`.
    `.brse/memory/long/estimate-status.md` updated with the stage
    ("Q&A v1 drafted, waiting for review").
 
-## Output
+## Output — in this order, for the stated reader
 
-Counts (requirements by category, gaps by type and priority), the two lists'
-paths, the Q&A file path, and the questions marked A. Then `review-gate`
+1. Answers to the user's questions, one by one, in the order asked.
+2. The current business and systems (text + swimlane diagram).
+3. The change table with counts.
+4. Questions that change the effort (priority A/B), each with "if X then +N…".
+5. Term table (every company, system and domain term used, in full).
+Then counts, the lists' paths, the Q&A file path. Before sending, re-read the
+reply as the user would — someone who has not read the documents — and fix
+every place they would have to ask "what is this?" or "how many?". Then `review-gate`
 (`verify-claims.py` on every requirement's source ref).

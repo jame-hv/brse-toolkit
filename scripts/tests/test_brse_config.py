@@ -96,9 +96,18 @@ def test_local_config_overrides_shared_workspace_config(tmp_path):
     assert out["loaded"][-1].endswith("config.local.json")
 
 
-def test_local_config_refuses_secrets_too(tmp_path):
+def test_local_config_may_hold_keys_but_they_are_never_printed(tmp_path):
     proj = tmp_path / "proj"
     write(proj / ".brse" / "config.json", {})
-    write(proj / ".brse" / "config.local.json", {"providers": {"deepl": {"api_key": "k"}}})
+    write(proj / ".brse" / "config.local.json", {"secrets": {"OPENAI_API_KEY": "sk-very-secret"}})
+    r = subprocess.run([sys.executable, str(SCRIPT), str(proj)], capture_output=True, text=True, encoding="utf-8",
+                       env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path / "home")})
+    assert r.returncode == 0 and "sk-very-secret" not in r.stdout
+    assert json.loads(r.stdout)["config"]["secrets"] == {"OPENAI_API_KEY": "(set)"}
+
+
+def test_shared_config_still_refuses_keys(tmp_path):
+    proj = tmp_path / "proj"
+    write(proj / ".brse" / "config.json", {"secrets": {"OPENAI_API_KEY": "sk-x"}})
     out, code = run(proj, tmp_path / "home")
-    assert code == 1 and "config.local.json" in out["error"]
+    assert code == 1 and "sk-x" not in out["error"]

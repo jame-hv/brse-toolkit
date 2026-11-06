@@ -13,13 +13,19 @@ that points at a concrete place in the work:
 - correctness — facts, numbers, names match the sources.
 - completeness — everything requested is there.
 - logic — reasoning holds; conclusions follow; structure fits the reader.
-- evidence — every conclusion backed by a cited source.
+- evidence — every conclusion backed by a cited source; interpretation is
+  labelled as interpretation, never presented as the document's content; no
+  invented example data or renamed terms.
 - language — natural, fluent, consistent style and register; no calques.
 - scope — nothing beyond the request; nothing invented.
+- reader — the stated reader, with no prior knowledge, understands it on first
+  reading: answers the questions asked, in that order, first; no
+  abbreviations — every company, system and term written in full; numbers, not
+  vague words; nothing pushed to the client that the sources already answer.
 
 You may open the cited source files with your tools to check a claim. When a
 claim cannot be checked, say so in the reason and lower `evidence`.
 
 Answer with ONLY this JSON:
-{"scores": {"correctness": n, "completeness": n, "logic": n, "evidence": n, "language": n, "scope": n},
+{"scores": {"correctness": n, "completeness": n, "logic": n, "evidence": n, "language": n, "scope": n, "reader": n},
  "reasons": {"<criterion>": "<reason>"}, "must_fix": ["<concrete problem>", "..."]}

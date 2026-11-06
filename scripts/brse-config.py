@@ -73,7 +73,9 @@ def resolve(start: Path) -> dict:
         if not path.is_file():
             continue
         data = load(path)
-        secrets = find_secrets(data)
+        secrets = find_secrets({k: v for k, v in data.items() if not (path.name == "config.local.json" and k == "secrets")})
+        if path.name != "config.local.json" and data.get("secrets"):
+            secrets.append("secrets")
         if secrets:
             raise ValueError(f"{path}: không ghi secret vào config ({', '.join(secrets)}) "
                              "— đặt key vào biến môi trường, config chỉ ghi tên biến (*_env)")
@@ -83,6 +85,13 @@ def resolve(start: Path) -> dict:
             "workspace_root": str(root) if root else None, "warnings": warnings}
 
 
+def masked(out: dict) -> dict:
+    """Never print a key: secrets are shown as set / not set only."""
+    shown = json.loads(json.dumps(out))
+    shown["config"]["secrets"] = {k: "(set)" if v else "(empty)" for k, v in out["config"].get("secrets", {}).items()}
+    return shown
+
+
 def main() -> None:
     start = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     try:
@@ -90,7 +99,7 @@ def main() -> None:
     except ValueError as e:
         print(json.dumps({"error": str(e)}, ensure_ascii=False))
         sys.exit(1)
-    print(json.dumps(out, ensure_ascii=False, indent=2))
+    print(json.dumps(masked(out), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

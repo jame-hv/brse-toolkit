@@ -9,7 +9,7 @@ Usage:
       its reply, then run `judge.py parse <reply_file>`.
   judge.py parse <reply_file> [--project DIR]
       validates a reviewer's JSON reply and applies the thresholds.
-Thresholds: config.quality.min_scores (default correctness/evidence/scope ≥ 4,
+Thresholds: config.quality.min_scores (default correctness/evidence/scope/reader ≥ 4,
 others ≥ 3). Prints {"pass", "scores", "failed", "must_fix", "reasons", "provider"};
 exit 1 when the work does not pass or the reply is unusable.
 """
@@ -24,8 +24,8 @@ from pathlib import Path
 
 import brse_common
 
-CRITERIA = ["correctness", "completeness", "logic", "evidence", "language", "scope"]
-DEFAULT_MIN = {"correctness": 4, "completeness": 3, "logic": 3, "evidence": 4, "language": 3, "scope": 4}
+CRITERIA = ["correctness", "completeness", "logic", "evidence", "language", "scope", "reader"]
+DEFAULT_MIN = {"correctness": 4, "completeness": 3, "logic": 3, "evidence": 4, "language": 3, "scope": 4, "reader": 4}
 
 
 def verdict(reply: str, config: dict) -> dict:
