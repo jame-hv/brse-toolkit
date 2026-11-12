@@ -1,0 +1,30 @@
+{
+  "name": "brse-toolkit",
+  "version": "3.0.0",
+  "description": "BrSE productivity toolkit for Japanese-Vietnamese translation, specification and code analysis, Excel validation, output verification, report generation, and project-aware memory management.",
+  "author": {
+    "name": "Vu Dinh Hoang"
+  },
+  "keywords": [
+    "brse",
+    "japanese",
+    "translation",
+    "spec-analysis"
+  ],
+  "userConfig": {
+    "openai_api_key": {
+      "type": "string",
+      "title": "OpenAI API key",
+      "description": "Optional. Used for machine translation and second-model review. Stored in the OS keychain.",
+      "sensitive": true,
+      "required": false
+    },
+    "deepl_api_key": {
+      "type": "string",
+      "title": "DeepL API key",
+      "description": "Optional. Used as the machine-translation base layer. Stored in the OS keychain.",
+      "sensitive": true,
+      "required": false
+    }
+  }
+}

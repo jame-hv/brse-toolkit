@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "brse-toolkit",
+  "description": "BrSE productivity toolkit for Japanese-Vietnamese translation, specification and code analysis, Excel validation, output verification, report generation, and project-aware memory management.",
+  "owner": {
+    "name": "Vu Dinh Hoang"
+  },
+  "plugins": [
+    {
+      "name": "brse-toolkit",
+      "description": "A comprehensive BrSE toolkit for JP-VI translation, specification/code/Excel cross-checking, output verification, report generation, and project-aware memory management.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

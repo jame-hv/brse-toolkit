@@ -1,0 +1,137 @@
+{
+  "_note": "What doctor/setup check and how to install each item per OS. 'check' = executable names tried on PATH, then 'extra_paths'. 'install' = one command per OS (null = no standard installer: show 'manual' instead). Verify IDs/commands when editing.",
+  "tools": [
+    {
+      "id": "python",
+      "level": "core",
+      "check": ["python3", "python", "py"],
+      "required_for": "every script (Excel/Word/PowerPoint reading, diff, lint, config)",
+      "install": {
+        "linux": "sudo apt install -y python3 python3-venv python3-pip",
+        "darwin": "brew install python",
+        "windows": "winget install -e --id Python.Python.3.12"
+      }
+    },
+    {
+      "id": "ripgrep",
+      "level": "optional",
+      "check": ["rg"],
+      "required_for": "code-to-business (fast code search)",
+      "install": {
+        "linux": "sudo apt install -y ripgrep",
+        "darwin": "brew install ripgrep",
+        "windows": "winget install -e --id BurntSushi.ripgrep.MSVC"
+      }
+    },
+    {
+      "id": "tesseract",
+      "level": "optional",
+      "check": ["tesseract"],
+      "extra_paths": {"windows": ["C:/Program Files/Tesseract-OCR/tesseract.exe"]},
+      "required_for": "image-analyze (OCR for JP/EN/VI text in images)",
+      "install": {
+        "linux": "sudo apt install -y tesseract-ocr tesseract-ocr-jpn tesseract-ocr-vie",
+        "darwin": "brew install tesseract tesseract-lang",
+        "windows": "winget install -e --id UB-Mannheim.TesseractOCR"
+      }
+    },
+    {
+      "id": "libreoffice",
+      "level": "optional",
+      "check": ["soffice", "libreoffice"],
+      "extra_paths": {
+        "windows": ["C:/Program Files/LibreOffice/program/soffice.exe"],
+        "darwin": ["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+      },
+      "required_for": "rendering sheets with shapes to images (fallback when no office CLI)",
+      "install": {
+        "linux": "sudo apt install -y libreoffice",
+        "darwin": "brew install --cask libreoffice",
+        "windows": "winget install -e --id TheDocumentFoundation.LibreOffice"
+      }
+    },
+    {
+      "id": "drawio",
+      "level": "optional",
+      "check": ["drawio", "draw.io"],
+      "extra_paths": {
+        "windows": ["C:/Program Files/draw.io/draw.io.exe"],
+        "darwin": ["/Applications/draw.io.app/Contents/MacOS/draw.io"]
+      },
+      "required_for": "diagram (architecture/flow diagrams exported to PNG)",
+      "install": {
+        "linux": "sudo snap install drawio",
+        "darwin": "brew install --cask drawio",
+        "windows": "winget install -e --id JGraph.Draw"
+      }
+    },
+    {
+      "id": "node",
+      "level": "optional",
+      "check": ["npm"],
+      "required_for": "installing the codex / gemini CLIs",
+      "install": {
+        "linux": "sudo apt install -y nodejs npm",
+        "darwin": "brew install node",
+        "windows": "winget install -e --id OpenJS.NodeJS.LTS"
+      }
+    },
+    {
+      "id": "codex",
+      "level": "optional",
+      "check": ["codex"],
+      "needs": ["node"],
+      "required_for": "second-agent review and back-translation (needs an OpenAI login or API key)",
+      "install": {"all": "npm install -g @openai/codex"}
+    },
+    {
+      "id": "gemini",
+      "level": "optional",
+      "check": ["gemini"],
+      "needs": ["node"],
+      "required_for": "second-agent review and back-translation (needs a Google login or API key)",
+      "install": {"all": "npm install -g @google/gemini-cli"}
+    },
+    {
+      "id": "gridcraft-cli",
+      "level": "optional",
+      "check": ["gridcraft-cli"],
+      "required_for": "reading/writing .xlsx without Python, round-trip fidelity check",
+      "install": null,
+      "manual": "https://getartcraft.com/apps"
+    },
+    {
+      "id": "wordcraft-cli",
+      "level": "optional",
+      "check": ["wordcraft-cli"],
+      "required_for": "reading/converting .docx, rendering pages to PNG",
+      "install": null,
+      "manual": "https://getartcraft.com/apps"
+    },
+    {
+      "id": "deckcraft-cli",
+      "level": "optional",
+      "check": ["deckcraft-cli"],
+      "required_for": "building/rendering .pptx slides",
+      "install": null,
+      "manual": "https://getartcraft.com/apps"
+    },
+    {
+      "id": "photocraft-cli",
+      "level": "optional",
+      "check": ["photocraft-cli"],
+      "required_for": "editing images and evidence screenshots",
+      "install": null,
+      "manual": "https://getartcraft.com/apps"
+    }
+  ],
+  "python_requirements": "requirements.txt",
+  "python_import_names": {
+    "openpyxl": "openpyxl",
+    "python-pptx": "pptx",
+    "python-docx": "docx",
+    "pytesseract": "pytesseract",
+    "Pillow": "PIL",
+    "chardet": "chardet"
+  }
+}

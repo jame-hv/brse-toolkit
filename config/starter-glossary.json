@@ -1,0 +1,285 @@
+{
+ "_note": "Common IT terms used only as translation hints. Never copied into a project's glossary; a project's confirmed terms always win.",
+ "terms": [
+  {
+   "en": "screen",
+   "vi": "màn hình",
+   "ja": "画面"
+  },
+  {
+   "en": "field",
+   "vi": "trường",
+   "ja": "フィールド"
+  },
+  {
+   "en": "button",
+   "vi": "nút",
+   "ja": "ボタン"
+  },
+  {
+   "en": "requirement",
+   "vi": "yêu cầu (nghiệp vụ)",
+   "ja": "要件"
+  },
+  {
+   "en": "specification",
+   "vi": "đặc tả",
+   "ja": "仕様"
+  },
+  {
+   "en": "basic design",
+   "vi": "thiết kế cơ bản",
+   "ja": "基本設計"
+  },
+  {
+   "en": "detailed design",
+   "vi": "thiết kế chi tiết",
+   "ja": "詳細設計"
+  },
+  {
+   "en": "test case",
+   "vi": "trường hợp kiểm thử",
+   "ja": "テストケース"
+  },
+  {
+   "en": "unit test",
+   "vi": "kiểm thử đơn vị",
+   "ja": "単体テスト"
+  },
+  {
+   "en": "integration test",
+   "vi": "kiểm thử tích hợp",
+   "ja": "結合テスト"
+  },
+  {
+   "en": "regression test",
+   "vi": "kiểm thử hồi quy",
+   "ja": "回帰テスト"
+  },
+  {
+   "en": "acceptance test",
+   "vi": "kiểm thử nghiệm thu",
+   "ja": "受入テスト"
+  },
+  {
+   "en": "bug",
+   "vi": "lỗi",
+   "ja": "バグ"
+  },
+  {
+   "en": "defect",
+   "vi": "lỗi (khiếm khuyết)",
+   "ja": "不具合"
+  },
+  {
+   "en": "environment",
+   "vi": "môi trường",
+   "ja": "環境"
+  },
+  {
+   "en": "server",
+   "vi": "máy chủ",
+   "ja": "サーバ"
+  },
+  {
+   "en": "client",
+   "vi": "máy khách",
+   "ja": "クライアント"
+  },
+  {
+   "en": "database",
+   "vi": "cơ sở dữ liệu",
+   "ja": "データベース"
+  },
+  {
+   "en": "table",
+   "vi": "bảng",
+   "ja": "テーブル"
+  },
+  {
+   "en": "column",
+   "vi": "cột",
+   "ja": "カラム"
+  },
+  {
+   "en": "row",
+   "vi": "dòng",
+   "ja": "行"
+  },
+  {
+   "en": "deploy",
+   "vi": "triển khai",
+   "ja": "デプロイ"
+  },
+  {
+   "en": "release",
+   "vi": "phát hành",
+   "ja": "リリース"
+  },
+  {
+   "en": "version",
+   "vi": "phiên bản",
+   "ja": "バージョン"
+  },
+  {
+   "en": "validation",
+   "vi": "kiểm tra hợp lệ",
+   "ja": "バリデーション"
+  },
+  {
+   "en": "error message",
+   "vi": "thông báo lỗi",
+   "ja": "エラーメッセージ"
+  },
+  {
+   "en": "login",
+   "vi": "đăng nhập",
+   "ja": "ログイン"
+  },
+  {
+   "en": "logout",
+   "vi": "đăng xuất",
+   "ja": "ログアウト"
+  },
+  {
+   "en": "session",
+   "vi": "phiên làm việc",
+   "ja": "セッション"
+  },
+  {
+   "en": "user",
+   "vi": "người dùng",
+   "ja": "ユーザー"
+  },
+  {
+   "en": "permission",
+   "vi": "quyền",
+   "ja": "権限"
+  },
+  {
+   "en": "confirmation",
+   "vi": "xác nhận",
+   "ja": "確認"
+  },
+  {
+   "en": "update",
+   "vi": "cập nhật",
+   "ja": "更新"
+  },
+  {
+   "en": "create/register",
+   "vi": "tạo mới",
+   "ja": "新規作成"
+  },
+  {
+   "en": "delete",
+   "vi": "xóa",
+   "ja": "削除"
+  },
+  {
+   "en": "edit",
+   "vi": "chỉnh sửa",
+   "ja": "編集"
+  },
+  {
+   "en": "search",
+   "vi": "tìm kiếm",
+   "ja": "検索"
+  },
+  {
+   "en": "filter",
+   "vi": "lọc",
+   "ja": "絞り込み"
+  },
+  {
+   "en": "sort",
+   "vi": "sắp xếp",
+   "ja": "並び替え"
+  },
+  {
+   "en": "pagination",
+   "vi": "phân trang",
+   "ja": "ページング"
+  },
+  {
+   "en": "upload",
+   "vi": "tải lên",
+   "ja": "アップロード"
+  },
+  {
+   "en": "download",
+   "vi": "tải xuống",
+   "ja": "ダウンロード"
+  },
+  {
+   "en": "batch process",
+   "vi": "xử lý theo lô",
+   "ja": "バッチ処理"
+  },
+  {
+   "en": "log",
+   "vi": "nhật ký",
+   "ja": "ログ"
+  },
+  {
+   "en": "backup",
+   "vi": "sao lưu",
+   "ja": "バックアップ"
+  },
+  {
+   "en": "security",
+   "vi": "bảo mật",
+   "ja": "セキュリティ"
+  },
+  {
+   "en": "authentication",
+   "vi": "xác thực",
+   "ja": "認証"
+  },
+  {
+   "en": "authorization",
+   "vi": "phân quyền",
+   "ja": "認可"
+  },
+  {
+   "en": "encryption",
+   "vi": "mã hóa",
+   "ja": "暗号化"
+  },
+  {
+   "en": "interface",
+   "vi": "giao diện",
+   "ja": "インターフェース"
+  },
+  {
+   "en": "function",
+   "vi": "chức năng",
+   "ja": "機能"
+  },
+  {
+   "en": "performance",
+   "vi": "hiệu năng",
+   "ja": "パフォーマンス"
+  },
+  {
+   "en": "workflow",
+   "vi": "quy trình làm việc",
+   "ja": "ワークフロー"
+  },
+  {
+   "en": "ticket",
+   "vi": "phiếu yêu cầu",
+   "ja": "チケット"
+  },
+  {
+   "en": "milestone",
+   "vi": "mốc tiến độ",
+   "ja": "マイルストーン"
+  },
+  {
+   "en": "deadline",
+   "vi": "hạn chót",
+   "ja": "締切"
+  }
+ ]
+}

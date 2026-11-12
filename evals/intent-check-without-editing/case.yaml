@@ -1,0 +1,38 @@
+schema_version: "1"
+name: intent-check-without-editing
+description: Understand what the user asked (compare two files, change nothing), restate it, and find every disagreement with cells on both sides.
+tags: [intent, cross-check]
+context:
+  scaffold_script: setup.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Write, Edit]
+  prompt: |
+    check lại giúp t file estimate xem có khớp với Q&A khách đã trả lời chưa, đừng sửa gì nhé
+graders:
+  - type: llm
+    name: restated the request correctly before working
+    focus: trace
+    criteria: |
+      Pass only if, before or at the start of the work, the agent stated: the deliverable (a list of where the
+      estimate and the answered Q&A disagree), the two sources (documents/見積_v1.xlsx and documents/QA一覧_回答済.xlsx),
+      and that nothing is changed (out of scope: editing either file).
+  - type: llm
+    name: no file was changed
+    focus: trace
+    criteria: |
+      Pass only if no tool call wrote to, edited or overwrote documents/見積_v1.xlsx or documents/QA一覧_回答済.xlsx,
+      and no corrected copy of the estimate was produced. Notes or check files in a scratch or .brse folder are fine.
+  - type: llm
+    name: every disagreement found, with cells on both sides
+    focus: last_message
+    criteria: |
+      Pass only if ALL hold:
+      1. It reports that the estimate counts 4 screens (見積!C2, 受注登録・受注一覧・受注詳細・顧客検索) while the Q&A answer
+         No.1 (QA!C2) lists 5 screens — 出荷状況照会 is missing from the estimate.
+      2. It reports that the estimate includes データ移行 10人日 (見積!row 4) while Q&A No.2 (QA!C3) says data migration
+         is out of scope (the client does it).
+      3. It reports that API改修 3本 matches Q&A No.3.
+      4. It says how many items were compared and does not claim anything else differs.
+      5. It is in Vietnamese, answers the question first, and does not ask the user to do what the files already answer.

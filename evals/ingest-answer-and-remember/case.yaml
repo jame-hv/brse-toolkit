@@ -1,0 +1,37 @@
+schema_version: "1"
+name: ingest-answer-and-remember
+description: Ingest the client's documents, answer from them with exact sources, and save a term the user confirms to long-term memory.
+tags: [ingest, memory]
+context:
+  scaffold_script: setup.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Write, Edit]
+  prompt: |
+    Nạp tài liệu trong documents/ rồi cho tôi biết màn hình 受注登録 có những trường bắt buộc nào.
+    À, trong dự án này 受注 thống nhất dịch là "nhận đơn", ghi nhớ giúp tôi.
+graders:
+  - type: file_exists
+    name: knowledge base built
+    path: .brse/knowledge/manifest.json
+  - type: regex
+    name: confirmed term saved to the glossary
+    target: {source: file, path: .brse/memory/long/glossary.md}
+    pattern: "受注[\\s\\S]{0,80}nhận đơn|nhận đơn[\\s\\S]{0,80}受注"
+  - type: llm
+    name: glossary entry follows the schema with source and date
+    focus: {source: file, path: .brse/memory/long/glossary.md}
+    criteria: |
+      Pass only if the glossary has one entry for 受注 = "nhận đơn" in the form
+      "- EN: … | VI: nhận đơn | JP: 受注 — <source>, <date> — status: active" (EN may be "—" or a real term),
+      the source says the user confirmed it, and no other new entry was invented.
+  - type: llm
+    name: answer is exact and sourced
+    focus: last_message
+    criteria: |
+      Pass only if ALL hold:
+      1. The required fields listed are exactly 顧客コード, 受注日, 商品コード, 数量 — not 備考 (not required), nothing invented.
+      2. Each is tied to its source: the file 画面定義_受注登録.xlsx, sheet 受注登録, and the row or cell (e.g. 受注登録!D2).
+      3. The reply is in Vietnamese, says the term was saved, and keeps the Japanese field names as written
+         (a Vietnamese gloss may follow).

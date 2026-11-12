@@ -1,0 +1,44 @@
+schema_version: "1"
+name: diagram-system-from-spec
+description: Draw the current system from a Japanese spec so a client can read it — every box and arrow from the document, checked and looked at.
+tags: [diagram]
+context:
+  scaffold_script: setup.sh
+execution:
+  max_turns: 60
+  timeout_seconds: 1200
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Write, Edit, Agent]
+  prompt: |
+    Vẽ giúp tôi sơ đồ hệ thống hiện tại dựa trên tài liệu trong documents/, để giải thích cho khách
+    (khách đọc tiếng Nhật). Làm luôn, đừng hỏi tôi cách vẽ.
+graders:
+  - type: tool_used
+    name: diagram skill used
+    tool: Skill
+    input_match: diagram
+    min: 1
+    arm: with-only
+  - type: regex
+    name: built or adapted with the plugin tool, then checked
+    target: trace
+    pattern: "drawio-tool (build|edit|template)[\\s\\S]*drawio-tool check"
+  - type: llm
+    name: every element comes from the document
+    focus: trace
+    criteria: |
+      Pass only if ALL hold, judged from the tool calls and files:
+      1. The document documents/現行システム構成.docx was read before drawing.
+      2. The diagram contains these parts, labelled in Japanese: 営業担当者 (or its PC/browser), 受注Web,
+         受注API, 受注DB, 夜間バッチ, 倉庫管理システム (WMS), メールサーバ.
+      3. The connections follow the document: browser → 受注Web → 受注API → 受注DB; 夜間バッチ reads 受注DB and
+         sends 出荷指示CSV by SFTP to WMS (with the 22時 timing visible or in the sources table); 受注API → メールサーバ
+         → 営業担当者 (完了メール). No box or arrow that the document does not mention, unless drawn as unconfirmed.
+      4. `drawio-tool check` was run and passed (or each failure was fixed and it was run again).
+      5. The diagram was exported to PNG and the PNG was opened (Read) before handing back.
+  - type: llm
+    name: reply a client-facing reader can use
+    focus: last_message
+    criteria: |
+      Pass only if the final reply is in Vietnamese, gives the path of the .drawio and .png files, says which
+      question the diagram answers, lists the sources (document + where), and states the checks that were run.
+      Fail if it asks the user how to draw or which kind of diagram to use.

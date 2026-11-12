@@ -1,0 +1,20 @@
+{
+  "estimate-cell": {
+    "reader": "the client's and our own project managers reading an estimate table",
+    "rules": [
+      "A cell is a short noun phrase at the same level of detail as the source cell beside it.",
+      "A work-item cell names the object and the change: which screen / button / process, and what it becomes. A cell that only says 「〜への対応」, 「〜追加」, 「〜チェック」, 'support X', 'add X' without saying what changes is `vague`.",
+      "The translated cell carries every detail of the source cell (screen names, conditions, destinations); a detail dropped or changed is `mismatch`.",
+      "Abbreviations that are in the project glossary are allowed in a cell; other abbreviations are `abbreviation`."
+    ],
+    "basis": "skills/estimation/SKILL.md step 6 (short noun phrases in the cell); work items written only as 「〜への対応」 do not say what changes; expanding glossary abbreviations inside a cell breaks the table's density"
+  },
+  "text": {
+    "reader": "the stated reader, who has not read the source documents",
+    "rules": [
+      "Full sentences; no abbreviations — every company, system and term written in full.",
+      "Numbers instead of vague quantities."
+    ],
+    "basis": "config/wording-review.md (the plugin's wording standard) and rule 4 of the CLAUDE.md block written by brse.py init"
+  }
+}
