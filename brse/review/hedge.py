@@ -12,7 +12,9 @@ import sys
 
 from brse.cli import take
 
-HEDGE_WORDS = ["có lẽ", "chắc là", "hình như", "có thể"]
+# "có thể" is not here: in Vietnamese specs it mostly means "is able to" ("người dùng có thể đăng nhập"),
+# so a literal match flags correct sentences; a guess written with it is left to the reviewer.
+HEDGE_WORDS = ["có lẽ", "chắc là", "hình như"]
 DEFAULT_SOURCE_TAG = "(nguồn: {ref})"
 INLINE_REF_RE = re.compile(r"[\w./-]+\.\w+:\d+|[^\s!(（]+![A-Z]{1,3}\d+")
 

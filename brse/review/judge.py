@@ -63,8 +63,17 @@ def main() -> None:
             sha = hashlib.sha256(prompt.encode()).hexdigest()
             f, reply = d / f"judge-{sha[:12]}.prompt.md", d / f"judge-{sha[:12]}.reply.json"
             if reply.is_file() and json.loads(reply.read_text(encoding="utf-8")).get("prompt_sha") == sha:
-                out = {"provider": "claude-subagent (not model-independent)",
-                       **verdict(json.loads(reply.read_text(encoding="utf-8"))["reply"], config)}
+                from brse.harness import gate
+                try:
+                    text = gate.read_reply(reply)
+                except gate.StillRunning as e:
+                    print(json.dumps({"provider": "none", "next": str(e)}, ensure_ascii=False, indent=2))
+                    sys.exit(1)
+                try:
+                    out = {"provider": "claude-subagent (not model-independent)", **verdict(text, config)}
+                except ValueError:
+                    reply.unlink()  # a broken answer is dropped so the same dispatch can run again
+                    raise
             else:
                 f.write_text(prompt, encoding="utf-8")
                 print(json.dumps({"provider": "none", "tried": res["tried"],

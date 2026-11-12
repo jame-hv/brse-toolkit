@@ -40,7 +40,7 @@ def unstamped_files(data: dict) -> list:
     if not root:
         return []
     since = session_start_time(data.get("transcript_path") or "")
-    return gate.unstamped(root, since, config) if since else []
+    return gate.unstamped(root, since, config, Path(data["transcript_path"])) if since else []
 
 
 def record_session(data: dict) -> None:
@@ -85,47 +85,36 @@ def stop_decision(data: dict):
     return {"systemMessage": "brse-toolkit: the turn ended WITHOUT passing the final check — " + "; ".join(what)}
 
 
-def subagent_report(data: dict, resp: str) -> str:
-    """The subagent's final report. Newer Claude Code delivers it through SubagentHandback, and the Agent
-    tool result only says "agentId: <id>"; then read the subagent's own transcript."""
-    import re
-    m = re.search(r"agentId:\s*([\w-]+)", resp)
-    t = data.get("transcript_path")
-    if not m or not t:
-        return resp
-    sub = Path(t).with_suffix("") / "subagents" / f"agent-{m.group(1)}.jsonl"
-    report = resp
-    for line in sub.open(encoding="utf-8", errors="ignore") if sub.is_file() else []:
-        try:
-            d = json.loads(line)
-        except ValueError:
-            continue
-        if d.get("type") != "assistant":
-            continue
-        for b in (d.get("message") or {}).get("content") or []:
-            if not isinstance(b, dict):
-                continue
-            if b.get("type") == "tool_use" and b.get("name") == "SubagentHandback":
-                report = str((b.get("input") or {}).get("message", ""))
-            elif b.get("type") == "text" and b.get("text", "").strip():
-                report = b["text"]
-    return report
-
-
 def agent_done(data: dict) -> None:
+    """Store a reviewer's answer for `gate check` / `judge`. A reviewer run in the background only has a
+    launch notice here; then its transcript is recorded and read once it has finished."""
+    import re
     from brse.harness import gate
     inp = data.get("tool_input") or {}
     if not str(inp.get("subagent_type", "")).endswith("reviewer"):  # wording-reviewer and reviewer
         return
-    resp = data.get("tool_response")
+    prompt, cwd, resp = str(inp.get("prompt", "")), data.get("cwd") or ".", data.get("tool_response")
     if isinstance(resp, dict) and isinstance(resp.get("handbackReport"), dict):  # Claude Code 2.1.3xx
-        gate.capture(str(inp.get("prompt", "")), str(resp["handbackReport"].get("text", "")), data.get("cwd") or ".")
+        gate.capture(prompt, str(resp["handbackReport"].get("text", "")), cwd)
         return
+    agent_id = resp.get("agentId") if isinstance(resp, dict) else None
     if isinstance(resp, dict):
         resp = resp.get("content", resp)
     if isinstance(resp, list):
         resp = "\n".join(b.get("text", "") for b in resp if isinstance(b, dict))
-    gate.capture(str(inp.get("prompt", "")), subagent_report(data, str(resp)), data.get("cwd") or ".")
+    resp = str(resp)
+    m = None if agent_id else re.search(r"agentId:\s*([\w-]+)", resp)
+    agent_id = agent_id or (m.group(1) if m else None)
+    t = data.get("transcript_path")
+    if not agent_id or not t:
+        gate.capture(prompt, resp, cwd)
+        return
+    sub = gate.subagent_file(t, agent_id)
+    finished, report = gate.subagent_reply(sub)
+    if finished:
+        gate.capture(prompt, report or resp, cwd)
+    else:
+        gate.capture(prompt, "", cwd, agent=str(sub))
 
 
 def run_with_stdin(module: str, raw: str) -> None:

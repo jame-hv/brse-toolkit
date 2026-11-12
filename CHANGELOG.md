@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.0.1 — 2026-11-12
+
+### Fixed
+- **Final check looped forever with "reviewer JSON unreadable"**: a reviewer agent run in the background
+  only returns a launch notice; the hook stored that notice as the answer, and the gate deleted its
+  records before reading them, so every retry failed the same way. The answer is now read from the
+  reviewer's own transcript once it has finished; until then `gate check` / `judge` say it is still
+  running, nothing is deleted, and the Stop hook does not block. A broken answer keeps the prompt so the
+  same dispatch can run again. Text around the reviewer's JSON no longer breaks reading it.
+- The Stop hook blocked on Office files the user saved themselves; it now counts only files the agent
+  wrote or named in a tool call, and no longer hashes templates unless a file needs it.
+- The key-file guard blocked any `config.local.json` / `secrets.env` (even `secrets.env.sample`) in
+  every project; a bare name now counts only inside a brse-toolkit workspace or the plugin's config folder.
+- `lint-hedge-words` no longer flags "có thể" (in specs it means "is able to").
+
+### Added
+- `LICENSE` (MIT).
+
 ## 3.0.0 — 2026-11-11
 
 Breaking: the separate scripts are gone; every command runs as `scripts/brse.py <command>`.

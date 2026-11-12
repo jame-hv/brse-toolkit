@@ -138,3 +138,8 @@ def test_source_tag_without_ref_placeholder_is_rejected():
     out, code = run("- x.", "--source-tag", "(source)")
     assert code == 2
     assert "{ref}" in out["error"]
+
+
+def test_co_the_meaning_able_to_is_not_a_hedge():
+    out, code = run("Người dùng có thể đăng nhập bằng email (nguồn: spec.md:12).")
+    assert code == 0 and out["violations"] == []

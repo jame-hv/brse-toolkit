@@ -17,6 +17,7 @@ Exit 0 only when the file is stamped.
 """
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -33,6 +34,53 @@ MARK = "BRSE-GATE"
 
 class Fail(Exception):
     pass
+
+
+class StillRunning(Fail):
+    pass
+
+
+def subagent_file(transcript: str, agent_id: str) -> Path:
+    return Path(transcript).with_suffix("") / "subagents" / f"agent-{agent_id}.jsonl"
+
+
+def subagent_reply(sub: Path):
+    """(finished, final report) of a subagent, read from its own transcript. The report is its
+    SubagentHandback message, else its last text. Finished = its meta file says so, or it handed back."""
+    report, handed = "", False
+    for line in sub.open(encoding="utf-8", errors="ignore") if sub.is_file() else []:
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if d.get("type") != "assistant":
+            continue
+        for b in (d.get("message") or {}).get("content") or []:
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "tool_use" and b.get("name") == "SubagentHandback":
+                report, handed = str((b.get("input") or {}).get("message", "")), True
+            elif b.get("type") == "text" and b.get("text", "").strip():
+                report = b["text"]
+    meta = sub.with_suffix(".meta.json")
+    try:
+        finished = handed or bool(json.loads(meta.read_text(encoding="utf-8")).get("finished"))
+    except (OSError, ValueError):
+        finished = handed
+    return finished, report
+
+
+def read_reply(rfile: Path) -> str:
+    """The reviewer's answer stored by `capture`. A reviewer launched in the background is read from its
+    transcript once it has finished; before that → StillRunning (nothing is deleted)."""
+    r = json.loads(rfile.read_text(encoding="utf-8"))
+    if not r.get("agent"):
+        return r["reply"]
+    finished, report = subagent_reply(Path(r["agent"]))
+    if not finished:
+        raise StillRunning("the reviewer agent is still running in the background — wait for its completion "
+                           "notice, then run this same command again (do not dispatch it again)")
+    return report
 
 
 def sha(path: Path) -> str:
@@ -189,17 +237,34 @@ def files_of(root: Path, file: Path):
 
 def consume(root: Path, file: Path, st: dict) -> None:
     """A reply captured from the wording-reviewer is recorded against the texts it was given, even when
-    the file was edited before this check ran."""
+    the file was edited before this check ran. The records are deleted only once the reply is recorded."""
     _, pending, reply = files_of(root, file)
     if not (pending.is_file() and reply.is_file()):
         return
     p, r = (json.loads(f.read_text(encoding="utf-8")) for f in (pending, reply))
     if p.get("prompt_sha") != r.get("prompt_sha"):
         return
+    text = read_reply(reply)  # StillRunning keeps both records
+    try:
+        record(st, text, p["texts"])
+    except ValueError as e:
+        reply.unlink()  # a broken answer is dropped; the prompt stays, so the same dispatch can run again
+        raise ValueError(f"{e} — dispatch the wording-reviewer again with the same prompt")
     pending.unlink()
     reply.unlink()
     st["provider"] = "claude-subagent (not model-independent)"
-    record(st, r["reply"], p["texts"])
+
+
+def in_flight(root: Path, file: Path) -> bool:
+    """A reviewer for this file was launched in the background and has not finished yet."""
+    _, pending, reply = files_of(root, file)
+    try:
+        read_reply(reply) if pending.is_file() and reply.is_file() else None
+    except StillRunning:
+        return True
+    except Exception:
+        pass
+    return False
 
 
 def ask_review(root: Path, file: Path, st: dict, prompt: str, texts: dict, config: dict) -> bool:
@@ -218,8 +283,9 @@ def ask_review(root: Path, file: Path, st: dict, prompt: str, texts: dict, confi
     return False
 
 
-def capture(prompt_text: str, reply_text: str, cwd: str) -> bool:
-    """Called by the PostToolUse hook of the Agent tool: store the wording-reviewer's reply for `gate check`."""
+def capture(prompt_text: str, reply_text: str, cwd: str, agent: str = "") -> bool:
+    """Called by the PostToolUse hook of the Agent tool: store the reviewer's reply for `gate check` / `judge`.
+    `agent` = the transcript of a reviewer still running in the background; its answer is read later."""
     i = prompt_text.find(MARK + " ")
     if i < 0:
         return False
@@ -228,7 +294,7 @@ def capture(prompt_text: str, reply_text: str, cwd: str) -> bool:
         return False
     phash = hashlib.sha256(pfile.read_text(encoding="utf-8").encode()).hexdigest()
     rfile = pfile.with_name(pfile.name.replace(".prompt.md", ".reply.json"))
-    rfile.write_text(json.dumps({"prompt_sha": phash, "reply": reply_text, "at": time.time()}, ensure_ascii=False),
+    rfile.write_text(json.dumps({"prompt_sha": phash, "reply": reply_text, "agent": agent, "at": time.time()}, ensure_ascii=False),
                      encoding="utf-8")
     return True
 
@@ -265,8 +331,9 @@ def check(root: Path, file: Path, original, kind: str, reader: str, lang: str, c
             return {"pass": False, "file": str(file), "to_review": len(todo),
                     "next": (f"Dispatch the plugin's wording-reviewer agent (subagent_type "
                              f"'brse-toolkit:wording-reviewer') with exactly this prompt: "
-                             f"\"{MARK} {files_of(root, file)[0]}\" — then run this gate check again BEFORE "
-                             "changing the file, so its issues are recorded. Its answer is captured by the "
+                             f"\"{MARK} {files_of(root, file)[0]}\" — when it has finished (wait for its completion notice if "
+                             "it runs in the background), run this gate check again BEFORE changing the file, so "
+                             "its issues are recorded. Its answer is captured by the "
                              "plugin; do not write the reply yourself.")}
     open_ = [i for i in st["issues"] if i["status"] == "open" and i.get("blocking", True)]
     advice = [i for i in st["issues"] if i["status"] == "open" and not i.get("blocking", True)]
@@ -320,29 +387,55 @@ def resolve(root: Path, file: Path, issue: str, how: str, reason) -> dict:
     return {"ok": True, "issue": issue, "status": how}
 
 
-def unstamped(root: Path, since: float, config: dict) -> list:
+def agent_text(transcript: Path) -> str:
+    """Everything the agent wrote into tool calls this session: Write / Edit paths and content, Bash commands."""
+    out = []
+    for line in transcript.open(encoding="utf-8", errors="ignore") if transcript.is_file() else []:
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        c = (d.get("message") or {}).get("content") if d.get("type") == "assistant" else None
+        for b in c if isinstance(c, list) else []:
+            if isinstance(b, dict) and b.get("type") == "tool_use":
+                inp = b.get("input") or {}
+                out += [str(inp.get(k, "")) for k in ("file_path", "notebook_path", "content", "new_string", "command")]
+    return "\n".join(out)
+
+
+def unstamped(root: Path, since: float, config: dict, transcript: Path) -> list:
     """Deliverable files changed in this session without a valid stamp: every Office / draw.io file in the
-    workspace modified at or after `since`, except the client's sources and templates and .brse itself."""
+    workspace modified at or after `since` whose name the agent used in a tool call (written, edited, or named
+    in a command or a script it wrote) — a file the user saved themselves never blocks the turn — except the
+    client's sources and templates and .brse itself."""
+    # ponytail: matches by file name, so a file the agent only read by name and the user then saved still
+    # counts; track per-call writes if that shows up in practice
+    named = agent_text(transcript)
+    if not named:
+        return []
     skip = [(root / p).resolve() for p in config.get("paths", {}).get("sources", []) +
             config.get("paths", {}).get("templates", [])]
-    # an untouched copy of a template or source document has nothing to review (a template copied to the
-    # output folder before the approval step would otherwise block the turn)
-    pristine = {sha(f) for s in skip if s.is_dir() for f in s.rglob("*") if f.is_file() and f.suffix.lower() in OFFICE}
+    pristine = None
     out = []
-    for p in root.rglob("*"):
-        if p.suffix.lower() not in OFFICE or p.name.startswith(("~$", ".~lock")) or not p.is_file():
-            continue
-        rp = p.resolve()
-        if any(part in (".brse", ".git", "node_modules") for part in rp.relative_to(root.resolve()).parts):
-            continue
-        if any(rp.is_relative_to(s) for s in skip) or p.stat().st_mtime < since:
-            continue
-        h = sha(p)
-        if h in pristine:
-            continue
-        st = load_state(root, p)
-        if st.get("stamp") != h:
-            out.append(str(p.relative_to(root)))
+    for dirpath, dirs, names in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in (".brse", ".git", "node_modules")]
+        for n in names:
+            p = Path(dirpath) / n
+            if p.suffix.lower() not in OFFICE or n.startswith(("~$", ".~lock")) or n not in named:
+                continue
+            rp = p.resolve()
+            if any(rp.is_relative_to(s) for s in skip) or not p.is_file() or p.stat().st_mtime < since:
+                continue
+            h = sha(p)
+            if pristine is None:
+                # an untouched copy of a template or source document has nothing to review (a template copied
+                # to the output folder before the approval step would otherwise block the turn)
+                pristine = {sha(f) for s in skip if s.is_dir() for f in s.rglob("*")
+                            if f.is_file() and f.suffix.lower() in OFFICE}
+            if h in pristine:
+                continue
+            if load_state(root, p).get("stamp") != h and not in_flight(root, p):
+                out.append(str(p.relative_to(root)))
     return sorted(out)
 
 

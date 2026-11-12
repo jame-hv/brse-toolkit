@@ -20,8 +20,9 @@ description: Mandatory before sending any conclusion — checks every claim has 
 3. Can't attach a source → say plainly, in the reply language, that it is not
    yet determined and needs to be asked to the client — never state it as fact.
 4. Banned hedge words in conclusions (checked literally by the script; the
-   current list is Vietnamese: "có lẽ", "chắc là", "hình như", "có thể"). Not
-   banned when the sentence is itself a question back to the client. For
+   current list is Vietnamese: "có lẽ", "chắc là", "hình như"). "có thể" is not
+   in the list because in specs it usually means "is able to"; when you use it
+   as a guess ("có thể do lỗi mạng"), rewrite it yourself. Not banned when the sentence is itself a question back to the client. For
    JP/EN deliverables the same rule applies (no 〜かもしれない / "maybe" in a
    conclusion) even though the script doesn't check those words yet.
 5. The script splits Japanese sentences on 。！？ and treats "？" as a

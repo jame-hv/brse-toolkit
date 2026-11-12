@@ -14,7 +14,10 @@ import json
 import re
 from pathlib import Path
 
-PROTECTED = re.compile(r"config\.local\.json|brse-toolkit[/\\\\]secrets\.env|(?<![\w-])secrets\.env")
+# a full path names the plugin's own key files anywhere; a bare name only counts inside a brse-toolkit
+# workspace or the plugin's config folder (other projects have their own config.local.json / secrets.env)
+PROTECTED = re.compile(r"\.brse[/\\\\]config\.local\.json|brse-toolkit[/\\\\]secrets\.env(?![\w.])")
+BARE = re.compile(r"(?<![\w.-])(config\.local\.json|secrets\.env)(?![\w.])")
 ALLOWED_SCRIPTS = re.compile(r"brse\.py\s+(config|set-key)\b")
 GATE = re.compile(r"\.brse[/\\\\]gate\b")
 GATE_SCRIPT = re.compile(r"brse\.py\s+gate\b")
@@ -24,6 +27,19 @@ WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 def refuse(msg: str) -> None:
     print(msg, file=sys.stderr)
     sys.exit(2)
+
+
+def protected(text: str, cwd: str) -> bool:
+    if PROTECTED.search(text):
+        return True
+    if not BARE.search(text):
+        return False
+    try:
+        from brse import config as brse_config
+        here = Path(cwd or ".").resolve()
+        return bool(brse_config.find_workspace(here)) or here.is_relative_to(brse_config.secrets_file().parent.resolve())
+    except Exception:
+        return False
 
 
 def in_sources(target: str, cwd: str) -> bool:
@@ -47,14 +63,14 @@ def main() -> None:
     tool, inp = data.get("tool_name", ""), data.get("tool_input") or {}
     if tool == "Bash":
         text = inp.get("command", "")
-        if PROTECTED.search(text) and not ALLOWED_SCRIPTS.search(text):
+        if protected(text, data.get("cwd") or ".") and not ALLOWED_SCRIPTS.search(text):
             refuse("Blocked: this command touches a file that holds API keys. Use "
                    "scripts/brse.py config (it shows keys only as '(set)'); never print a key.")
         if GATE.search(text) and not GATE_SCRIPT.search(text):
             refuse("Blocked: .brse/gate holds the final-check records; only `brse.py gate` may touch them.")
         sys.exit(0)
     target = " ".join(str(inp.get(k, "")) for k in ("file_path", "path", "pattern", "notebook_path"))
-    if PROTECTED.search(target):
+    if protected(target, data.get("cwd") or "."):
         refuse(f"Blocked: {tool} on a file that holds API keys. Use scripts/brse.py config, which never "
                "shows the key.")
     if tool in WRITE_TOOLS:

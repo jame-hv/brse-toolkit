@@ -15,7 +15,10 @@ def setup(ws, tmp_path):
     (ws / "output").mkdir()
     t = tmp_path / "t.jsonl"
     t.write_text(json.dumps({"type": "user", "timestamp": "2000-01-01T00:00:00Z",
-                             "message": {"role": "user", "content": "làm sheet song ngữ"}}) + "\n")
+                             "message": {"role": "user", "content": "làm sheet song ngữ"}}) + "\n"
+                 + json.dumps({"type": "assistant", "message": {"role": "assistant", "content": [
+                     {"type": "tool_use", "name": "Bash", "input": {"command": "python3 make.py output/est.xlsx"}}]}})
+                 + "\n")
     run_cli("hook", "session-start", stdin=json.dumps({"cwd": str(ws), "session_id": "s1",
                                                         "transcript_path": str(t)}), tmp=tmp_path)
     return t
@@ -293,3 +296,58 @@ def test_stop_ignores_translated_copies_outside_the_project(ws, tmp_path):
     store.write_text(json.dumps({str(other): {"source": None, "applied_at": time.time() + 5, "check": None},
                                  "/tmp/gone/out.xlsx": {"source": None, "applied_at": time.time() + 5, "check": None}}))
     assert stop(ws, t, tmp_path) is None
+
+
+def test_a_file_the_user_saved_themselves_does_not_block(ws, tmp_path):
+    t = setup(ws, tmp_path)
+    book(ws / "output" / "my-notes.xlsx")  # the agent never named it
+    assert stop(ws, t, tmp_path) is None
+    book(ws / "output" / "est.xlsx")  # the agent made this one
+    assert stop(ws, t, tmp_path)["decision"] == "block"
+
+
+def test_reviewer_run_in_the_background_is_read_once_it_has_finished(ws, tmp_path):
+    """The Agent result of a background reviewer is only a launch notice; the answer is read from the
+    subagent's transcript when it has finished. Until then nothing is lost and the turn may end."""
+    t = setup(ws, tmp_path)
+    f = ws / "output" / "est.xlsx"
+    book(f, "Đổi màn quay về của màn A thành màn B")
+    _, out = gate(ws, tmp_path, "check", f)
+    prompt = out["next"].split('"')[1]
+    sub = t.with_suffix("") / "subagents"
+    sub.mkdir(parents=True)
+    log = sub / "agent-bg1.jsonl"
+    log.write_text(json.dumps({"type": "user", "message": {"role": "user", "content": prompt}}) + "\n")
+    hook = {"cwd": str(ws), "tool_name": "Agent", "transcript_path": str(t),
+            "tool_input": {"subagent_type": "brse-toolkit:wording-reviewer", "prompt": prompt},
+            "tool_response": {"isAsync": True, "status": "async_launched", "agentId": "bg1",
+                              "content": [{"type": "text", "text": "Async agent launched {see notes}\nagentId: bg1"}]}}
+    run_cli("hook", "agent-done", stdin=json.dumps(hook), tmp=tmp_path)
+
+    code, out = gate(ws, tmp_path, "check", f)
+    assert code == 1 and "still running" in out["error"]
+    assert stop(ws, t, tmp_path) is None  # waiting for the reviewer does not block the turn
+
+    issues = {"issues": [{"unit": "明細!B2", "type": "unclear", "problem": "p", "rewrite": "r"}]}
+    with log.open("a") as fh:
+        fh.write(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "SubagentHandback",
+                 "input": {"message": json.dumps(issues, ensure_ascii=False)}}]}}, ensure_ascii=False) + "\n")
+    code, out = gate(ws, tmp_path, "check", f)
+    assert code == 1 and out["open_issues"][0]["unit"] == "明細!B2"
+
+
+def test_a_broken_reviewer_answer_keeps_the_prompt_for_a_second_dispatch(ws, tmp_path):
+    setup(ws, tmp_path)
+    f = ws / "output" / "est.xlsx"
+    book(f, "Đổi màn quay về của màn A thành màn B")
+    _, out = gate(ws, tmp_path, "check", f)
+    answer_text = lambda text: run_cli("hook", "agent-done", tmp=tmp_path, stdin=json.dumps({
+        "cwd": str(ws), "tool_name": "Agent",
+        "tool_input": {"subagent_type": "brse-toolkit:wording-reviewer", "prompt": out["next"].split('"')[1]},
+        "tool_response": {"content": [{"type": "text", "text": text}]}}))
+    answer_text('{"issues": [ {unit: broken')
+    code, res = gate(ws, tmp_path, "check", f)
+    assert code == 1 and "again with the same prompt" in res["error"]
+    answer_text('Here is the review:\n{"issues": []}\nDone {ok}.')  # text around the JSON is fine
+    code, res = gate(ws, tmp_path, "check", f)
+    assert code == 0 and res["pass"]
