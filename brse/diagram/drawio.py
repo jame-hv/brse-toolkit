@@ -286,6 +286,7 @@ def cmd_lint(path):
             if cross and not inside(ga, gb) and not inside(gb, ga):
                 findings.append({"rule": "overlap", "ids": [a, b], "labels": [label(by_id[a]), label(by_id[b])]})
     kind_of = {c.get("id"): (re.search(r"brseKind=([\w-]+)", c.get("style", "")) or [None, None])[1] for c in all_cells}
+    mixed = []
     for v in vertices:
         text = label(v)
         k = kind_of.get(v.get("id"))
@@ -295,9 +296,9 @@ def cmd_lint(path):
         if len(lines) > 2 or any(len(re.sub(r"<[^>]+>", "", x).strip()) > 28 for x in lines):
             findings.append({"rule": "long-label", "id": v.get("id"), "label": text[:60],
                              "note": "max 2 lines of ~28 characters — put details in a table next to the diagram"})
-        if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", text) and re.search(
-                r"[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", text, re.I):
-            findings.append({"rule": "mixed-language-label", "id": v.get("id"), "label": text[:60]})
+        order = mixed_order(text)
+        if order:
+            mixed.append((v.get("id"), text, order))
     for e in edges:
         if not label(e) and kind_of.get(e.get("source")) in INTERFACE_KINDS and kind_of.get(e.get("target")) in INTERFACE_KINDS:
             findings.append({"rule": "unlabeled-interface", "id": e.get("id"),
@@ -305,7 +306,83 @@ def cmd_lint(path):
     labels = [label(v) for v in vertices if label(v) and kind_of.get(v.get("id")) not in ("legend", "lane")]
     for dup in sorted({l for l in labels if labels.count(l) > 1}):
         findings.append({"rule": "duplicate-label", "label": dup, "note": "fine if intended (e.g. one per account)"})
+    # original term + explanation is fine, but in ONE order across the diagram (the minority is flagged)
+    orders = [o for _, _, o in mixed if o != "unclear"]
+    main = max(set(orders), key=orders.count) if orders else None
+    for cid, text, o in mixed:
+        if o == "unclear" or o != main:
+            findings.append({"rule": "mixed-language-label", "id": cid, "label": text[:60],
+                             "note": f"write every bilingual label in one order ({main or 'original (explanation)'}): "
+                                     "the term in one language, the other inside the brackets"})
+    # a legend entry for a status no element has
+    used = {m.group(1) for c in all_cells if kind_of.get(c.get("id")) != "legend"
+            for m in [re.search(r"brseStatus=([\w-]+)", c.get("style", ""))] if m}
+    for c in all_cells:
+        if kind_of.get(c.get("id")) != "legend":
+            continue
+        for st, (_, _, name) in STATUS.items():
+            if name.split(" ")[0] in label(c) and st not in used:
+                findings.append({"rule": "unused-legend", "id": c.get("id"), "label": label(c),
+                                 "note": f"no element is marked {st}; remove the entry"})
+    findings += route_findings(edges, vertices, by_id, boxes, kind_of)
     return findings
+
+
+def mixed_order(text: str):
+    """None (one language) | "original (explanation)" when Japanese comes first | "explanation (original)" |
+    "unclear" for a label that mixes languages without that shape."""
+    ja = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
+    vi = re.compile(r"[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", re.I)
+    if not (ja.search(text) and vi.search(text)):
+        return None
+    m = re.match(r"^(.*?)\s*[(（](.+)[)）]\s*$", text)
+    if not m:
+        return "unclear"
+    outer, inner = m.groups()
+    if ja.search(outer) and not ja.search(inner):
+        return "original (explanation)"
+    if ja.search(inner) and not ja.search(outer):
+        return "explanation (original)"
+    return "unclear"
+
+
+def route_findings(edges, vertices, by_id, boxes, kind_of) -> list:
+    """For arrows whose path is in the file (built diagrams): an arrow through a box or an icon's label,
+    and two arrows on top of each other. Arrows without points are routed by draw.io and not checked."""
+    from brse.diagram import route
+    obstacles = {}
+    for v in vertices:
+        cid = v.get("id")
+        if cid not in boxes or kind_of.get(cid) in ("lane", "title", "legend") or v.get("style", "").startswith("text;"):
+            continue
+        obstacles[cid] = boxes[cid]
+        if "verticalLabelPosition=bottom" in v.get("style", "") and label(v):
+            obstacles[cid + ":label"] = route.label_box(boxes[cid], label(v))
+    lines, out = {}, []
+    for e in edges:
+        st = e.get("style", "")
+        g = e.find("mxGeometry")
+        pts = [(float(p.get("x")), float(p.get("y"))) for p in (g.iter("mxPoint") if g is not None else [])
+               if p.get("as") != "sourcePoint" and p.get("as") != "targetPoint"]
+        ex, ey = re.search(r"exitX=([\d.]+)", st), re.search(r"exitY=([\d.]+)", st)
+        nx, ny = re.search(r"entryX=([\d.]+)", st), re.search(r"entryY=([\d.]+)", st)
+        sb, tb = boxes.get(e.get("source")), boxes.get(e.get("target"))
+        if not (pts and ex and ey and nx and ny and sb and tb):
+            continue
+        line = route.corners([(sb[0] + float(ex.group(1)) * sb[2], sb[1] + float(ey.group(1)) * sb[3]), *pts,
+                              (tb[0] + float(nx.group(1)) * tb[2], tb[1] + float(ny.group(1)) * tb[3])])
+        lines[e.get("id")] = line
+        hit = [k for k, b in obstacles.items() if b and route.segments_hit(line, b)]
+        if hit:
+            out.append({"rule": "edge-through-element", "id": e.get("id"), "label": label(e),
+                        "through": [label(by_id[k.split(":")[0]]) + (" (its label)" if ":" in k else "") for k in hit]})
+    ids = list(lines)
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            if route.shared_run(lines[a], lines[b]):
+                out.append({"rule": "edges-on-top-of-each-other", "ids": [a, b],
+                            "labels": [label(by_id[a]), label(by_id[b])]})
+    return out
 
 
 def cmd_export(path, out, layout, config):
@@ -438,7 +515,8 @@ def icon_style(item: dict, direction: str) -> str:
     """A node drawn as one of draw.io's icons. The label goes where arrows do not:
     beside the icon when arrows run top to bottom, under it when they run left to right."""
     place = ("labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=4;"
-             if direction == "DOWN" else "labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;")
+             if direction == "DOWN" else "labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;"
+             "whiteSpace=wrap;labelWidth=150;")
     border = ICON_BORDER.get(item.get("_status"))
     return (f"image;html=1;image=img/lib/{item['icon']};fontSize=13;labelBackgroundColor=#ffffff;{place}"
             + (f"imageBorder={border};strokeWidth=3;" if border else "") + f"brseKind={item['kind']};"
@@ -459,9 +537,21 @@ def with_status(style: str, status, kind: str, edge=False) -> str:
     return style + node_add + tag
 
 
+LANE_TITLE = 30   # lane name on a strip across the top of the lane, read horizontally
+CHANNEL = 40      # room kept around nodes for arrows to run in
+
+
+def label_under(m: dict, direction: str = "RIGHT") -> bool:
+    """Icons put their label under the icon when arrows run left to right."""
+    return bool(m.get("icon")) and direction != "DOWN" and bool(m.get("label"))
+
+
 def swimlane_positions(model: dict) -> dict:
-    """lanes = [{id, label}], nodes carry lane + col → absolute positions, lanes sized to fit."""
-    head, colw, pad = 140, 210, 24
+    """lanes = [{id, label}], nodes carry lane + col → absolute positions, lanes sized to fit.
+    Columns are as wide as the widest node or icon label plus room for arrows on both sides."""
+    from brse.diagram import route
+    left, pad = 20, CHANNEL
+    direction = model.get("direction", "RIGHT")
     lanes = model["lanes"]
     lane_ids = [l["id"] for l in lanes]
     stacks = {}
@@ -469,13 +559,23 @@ def swimlane_positions(model: dict) -> dict:
         if n.get("lane") not in lane_ids:
             raise ValueError(f"node {n['id']!r}: lane {n.get('lane')!r} is not one of {lane_ids}")
         stacks.setdefault((n["lane"], int(n.get("col", 0))), []).append(n)
+
+    def size(m):
+        _, w, h = node_style(m["kind"])
+        return m.get("w", w), m.get("h", h)
+
+    def extra(m):  # height taken by a label under an icon
+        return route.label_lines(m.get("label", "")) * 13 * 1.4 + 4 if label_under(m, direction) else 0
+
+    widths = [max(size(m)[0], min(route.text_width(m.get("label", "")), route.LABEL_MAX) + 8
+                  if label_under(m, direction) else 0) for m in model.get("nodes", [])]
+    colw = route.STEP * -(-max([210] + [int(w) + 2 * CHANNEL for w in widths]) // route.STEP)
     lane_h = {}
     for lid in lane_ids:
-        heights = [sum(m.get("h", node_style(m["kind"])[2]) + pad for m in ms) + pad
-                   for (l, _), ms in stacks.items() if l == lid]
-        lane_h[lid] = max([110] + heights)
+        heights = [sum(size(m)[1] + extra(m) + pad for m in ms) + pad for (l, _), ms in stacks.items() if l == lid]
+        lane_h[lid] = route.STEP * -(-int(LANE_TITLE + max([110] + heights)) // route.STEP)
     cols = max([int(n.get("col", 0)) for n in model.get("nodes", [])] + [0]) + 1
-    width = head + cols * colw + pad
+    width = left + cols * colw + left
     pos, y = {}, model.get("top", 60)
     lane_boxes = []
     for l in lanes:
@@ -483,19 +583,24 @@ def swimlane_positions(model: dict) -> dict:
         for (lid, col), ms in stacks.items():
             if lid != l["id"]:
                 continue
-            total = sum(m.get("h", node_style(m["kind"])[2]) for m in ms) + pad * (len(ms) - 1)
-            ny = y + (lane_h[lid] - total) / 2
+            total = sum(size(m)[1] + extra(m) for m in ms) + pad * (len(ms) - 1)
+            ny = y + LANE_TITLE + (lane_h[lid] - LANE_TITLE - total) / 2
             for m in ms:
-                _, w, h = node_style(m["kind"])
-                w, h = m.get("w", w), m.get("h", h)
-                pos[m["id"]] = (head + col * colw + (colw - w) / 2, ny, w, h)
-                ny += h + pad
+                w, h = size(m)
+                # centres on the routing grid, so arrows leave and enter in a straight line
+                cx = round((left + col * colw + colw / 2) / route.STEP) * route.STEP
+                cy = round((ny + h / 2) / route.STEP) * route.STEP
+                pos[m["id"]] = (cx - w / 2, cy - h / 2, w, h)
+                ny += h + extra(m) + pad
         y += lane_h[l["id"]]
-    return {"nodes": pos, "lanes": lane_boxes, "bottom": y, "width": width}
+    return {"nodes": pos, "lanes": lane_boxes, "bottom": y, "width": width, "colw": colw}
 
 
-LANE_STYLE = ("swimlane;horizontal=0;whiteSpace=wrap;html=1;startSize=140;fontSize=14;fontStyle=1;"
-              "fillColor=#F5F5F5;swimlaneFillColor=#FFFFFF;strokeColor=#999999;brseKind=lane;")
+LANE_STYLE = ("swimlane;horizontal=1;startSize=30;align=left;spacingLeft=10;whiteSpace=wrap;html=1;fontSize=14;"
+              "fontStyle=1;fillColor=#F5F5F5;swimlaneFillColor=#FFFFFF;strokeColor=#999999;brseKind=lane;")
+STEP_MARK = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
+ROUTED_EDGE = ("edgeStyle=none;rounded=0;html=1;endArrow=open;endFill=0;strokeWidth=2;fontSize=13;"
+               "labelBackgroundColor=#ffffff;")
 
 
 def cmd_build(model: dict, out):
@@ -510,6 +615,13 @@ def cmd_build(model: dict, out):
     Writes <out>.sources.md (one row per element with its source) and <out>.claims.json
     (for brse.py verify-claims, which opens each source and checks the quote is there)."""
     layout = model.get("layout")
+    if re.search(r"(?i)thứ tự|trình tự|順|order|sequence", model.get("question", "")):
+        missing = [e.get("label") or f"{e.get('source')}→{e.get('target')}" for e in model.get("edges", [])
+                   if not e.get("step") and not e.get("no_step")]
+        if missing:
+            raise ValueError("the question asks for an order, so every arrow needs \"step\": n (shown as ①②…; the "
+                             "same number for steps done at the same time) or \"no_step\": \"<why>\" — missing: "
+                             + ", ".join(missing[:10]))
     if layout not in ("swimlane", "auto"):
         raise ValueError("layout must be 'swimlane' (lane = who, col = step order) or 'auto' "
                          "(layered layout from the arrows) — positions are not set by hand")
@@ -571,20 +683,47 @@ def cmd_build(model: dict, out):
         add_vertex(item, style, x, y, w, h)
         bottom = max(bottom, y + h)
         width = max(width, x + w)
+    routes = {}
+    if layout == "swimlane":
+        from brse.diagram import route
+        for i, e in enumerate(model.get("edges", [])):
+            e.setdefault("id", f"e{i}")
+        direction = model.get("direction", "RIGHT")
+        nodes_by_id = {n["id"]: n for n in model.get("nodes", [])}
+        labels = {nid: route.label_box(box, nodes_by_id[nid].get("label", ""))
+                  if label_under(nodes_by_id[nid], direction) else None for nid, box in lay["nodes"].items()}
+        for lb in lay["lanes"]:  # the lane name on its title strip
+            labels[f"lane:{lb['id']}"] = (lb["x"] + 6, lb["y"] + 2, route.text_width(lb["label"], 14) + 12, LANE_TITLE - 4)
+        routes = route.route_all(lay["nodes"], labels,
+                                 [(e["id"], e["source"], e["target"]) for e in model.get("edges", [])
+                                  if not e.get("points") and e.get("source") in lay["nodes"] and e.get("target") in lay["nodes"]],
+                                 (0, lay["lanes"][0]["y"] if lay["lanes"] else 0, lay["width"], lay["bottom"]))
     for i, e in enumerate(model.get("edges", [])):
         for end in ("source", "target"):
             if e[end] not in seen:
                 raise ValueError(f"edge {i}: unknown {end} {e[end]!r}")
         e.setdefault("id", f"e{i}")
         status = effective_status(e, unsourced)
-        style = with_status(EDGE_STYLE, status, "", edge=True)
+        r = routes.get(e["id"])
+        base = EDGE_STYLE
+        if r:
+            (ex, ey), (nx, ny) = r["exit"], r["entry"]
+            base = ROUTED_EDGE + (f"exitX={ex:.3f};exitY={ey:.3f};exitDx=0;exitDy=0;exitPerimeter=0;"
+                                  f"entryX={nx:.3f};entryY={ny:.3f};entryDx=0;entryDy=0;entryPerimeter=0;")
+        style = with_status(base, status, "", edge=True)
         used_status.add(status)
-        c = ET.SubElement(root, "mxCell", id=e["id"], value=e.get("label", ""), style=style,
+        value = (f"{STEP_MARK[e['step'] - 1] if 0 < int(e['step']) <= len(STEP_MARK) else e['step']} "
+                 if e.get("step") else "") + e.get("label", "")
+        c = ET.SubElement(root, "mxCell", id=e["id"], value=value.strip(), style=style,
                           edge="1", parent="1", source=e["source"], target=e["target"])
         g = ET.SubElement(c, "mxGeometry", relative="1", **{"as": "geometry"})
-        if e.get("points"):
+        if r:
+            from brse.diagram import route
+            g.set("x", str(route.label_position(r["line"])))
+        points = e.get("points") or (r["points"] if r else None)
+        if points:
             arr = ET.SubElement(g, "Array", **{"as": "points"})
-            for x, y in e["points"]:
+            for x, y in points:
                 ET.SubElement(arr, "mxPoint", x=str(x), y=str(y))
     used_status.discard(None)
     if used_status and model.get("legend", True) and layout != "auto":

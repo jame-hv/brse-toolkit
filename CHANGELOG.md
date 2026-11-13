@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.2.0 — 2026-11-13
+
+### Added
+- **Arrows routed by the plugin** in swimlane diagrams (`brse/diagram/route.py`): each arrow gets its own
+  orthogonal path around every box and every icon label (never into a node through its own label), two
+  arrows never share a segment, several arrows on one side get separate ports, and the path is written into
+  the file so draw.io draws exactly that and lint can check it. Edge labels sit on the longest straight run.
+- Lint: `edge-through-element`, `edges-on-top-of-each-other` (for arrows whose path is in the file),
+  `unused-legend`.
+- Step numbers: when the diagram's question asks for an order, every arrow needs `"step": n` (drawn ①②…);
+  build refuses the model otherwise.
+
+### Changed
+- Lane names on a strip across the top of each lane, read horizontally (no more rotated, broken names).
+- Icon labels wrap at 150 px; columns are sized from the widest label instead of growing with it.
+- `mixed-language-label` accepts `<original> (<explanation>)` and flags only labels in the minority order.
+- `diagram` skill: rules for flows a newcomer must follow — steps numbered, lanes are people or roles when
+  the question asks who, one meaning per arrow, one bilingual order, legend only for used marks.
+
 ## 3.1.1 — 2026-11-13
 
 ### Fixed

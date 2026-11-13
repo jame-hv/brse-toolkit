@@ -81,7 +81,10 @@ from the closest one, or from an existing diagram in the project's sources.
    work — if a tool truly cannot do something, say what is missing in one line
    and draw the closest correct version.
 5. **Lint**: `brse.py drawio-tool lint <file>` — no orphans, no dangling or loose
-   edges, no overlaps; duplicate labels only where intended.
+   edges, no overlaps, no `edge-through-element` (an arrow across a box or an
+   icon's label), no `edges-on-top-of-each-other`, no `unused-legend`, no
+   `mixed-language-label`; duplicate labels only where intended. Every finding is
+   fixed before rendering, not explained away.
 6. **Render and look**: `brse.py drawio-tool export <file> <out.png>` (handles
    draw.io's snap sandbox). Open the PNG: every label readable and in the
    right language, arrows point the right way, no arrow across a label, nothing
@@ -93,7 +96,26 @@ from the closest one, or from an existing diagram in the project's sources.
    `brse.py drawio-tool build <model.json> <out.drawio>`. Positions are never typed:
    `"layout": "swimlane"` (lane = who does it, `col` = order of the step — for
    business flows) or `"layout": "auto"` (layered from the arrows — for system
-   overviews). Every node and edge carries `"ref": {"file", "part", "quote"}`
+   overviews). In a swimlane diagram build routes every arrow itself (around
+   boxes and labels, never two on one segment) and writes the path into the
+   file — do not add `points` unless a sample fixes the route.
+   **Rules for a flow that a newcomer must follow** (each comes from a rejected
+   diagram, 2026-11-13):
+   - The question asks for an order ("thứ tự", "順", "order") → every arrow has
+     `"step": n`, drawn as ①②…; the same number for steps done at the same time.
+     build refuses the model otherwise.
+   - The question asks who does it → lanes are people or roles (倉庫作業者,
+     事務員, 荷主…), not places or machines; a device used by that person sits in
+     their lane.
+   - One meaning per arrow in a diagram: an arrow is a step someone does, and its
+     label is that action ("kiểm hàng nhập"). Data written or read is shown by the
+     arrow's target or source being the data store — not by a second kind of
+     arrow labelled with the data.
+   - A bilingual label is always `<original term> (<explanation>)` in one order for
+     the whole diagram — the client's term first, the reader's language in the
+     brackets; lint flags the labels in the other order.
+   - The legend lists only the marks used in the diagram (build does this; lint
+     flags a legend entry added by hand for an unused mark). Every node and edge carries `"ref": {"file", "part", "quote"}`
    from the documents; without one it is drawn dashed as unconfirmed. The
    **Use draw.io's icons**: every person, device, server, database, external
    system or scheduled job gets `"icon": "<path>"` found with

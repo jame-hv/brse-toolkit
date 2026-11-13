@@ -111,9 +111,10 @@ SWIM = {"layout": "swimlane", "title": "現行業務フロー", "question": "Ai 
                   {"id": "s3", "kind": "step", "label": "承認を依頼", "lane": "ord", "col": 1, "ref": REF},
                   {"id": "s4", "kind": "step", "label": "金額確認", "lane": "op", "col": 2, "status": "changed", "ref": REF},
                   {"id": "s5", "kind": "step", "label": "請求受信", "lane": "acc", "col": 3, "status": "new", "ref": REF}],
-        "edges": [{"source": "s1", "target": "s2", "ref": REF}, {"source": "s2", "target": "s3", "label": "伝票番号", "ref": REF},
-                  {"source": "s3", "target": "s4", "ref": REF},
-                  {"source": "s4", "target": "s5", "label": "請求", "status": "new", "ref": REF}]}
+        "edges": [{"source": "s1", "target": "s2", "step": 1, "ref": REF},
+                  {"source": "s2", "target": "s3", "label": "伝票番号", "step": 2, "ref": REF},
+                  {"source": "s3", "target": "s4", "step": 3, "ref": REF},
+                  {"source": "s4", "target": "s5", "label": "請求", "status": "new", "step": 4, "ref": REF}]}
 
 
 def build(tmp_path, model):
@@ -221,7 +222,7 @@ def test_check_fails_disconnected_part_wrong_quote_and_mismatched_changes(tmp_pa
     model["nodes"][1]["kind"] = "device"                                  # devices inside a flow are fine
     model["nodes"].append({"id": "x1", "kind": "system", "label": "管理端末", "lane": "ord", "col": 3, "ref": REF})
     model["nodes"].append({"id": "x2", "kind": "system", "label": "プリンタ", "lane": "ord", "col": 4, "ref": REF})
-    model["edges"].append({"source": "x1", "target": "x2", "label": "印刷", "ref": REF})  # an island
+    model["edges"].append({"source": "x1", "target": "x2", "label": "印刷", "step": 5, "ref": REF})  # an island
     model["nodes"][0]["ref"] = {"file": "docs/spec.txt", "part": "", "quote": "存在しない文"}  # quote not in source
     build(tmp_path, model)
     (tmp_path / "chg.json").write_text(json.dumps([{"id": "s4", "status": "changed"}]))
@@ -349,3 +350,74 @@ def test_every_label_and_line_has_an_explicit_dark_color(tmp_path):
             assert "fontColor=" in c.get("style", ""), c.get("id")
         if c.get("edge") == "1":
             assert "strokeColor=" in c.get("style", ""), c.get("id")
+
+
+
+def _lint(tmp_path):
+    return json.loads(run_script("drawio-tool.py", "lint", tmp_path / "a.drawio", tmp=tmp_path).stdout)["findings"]
+
+
+def test_arrows_are_routed_around_labels_and_never_share_a_segment(tmp_path, monkeypatch):
+    """Icons with their label underneath, several arrows into one node, arrows across lanes: every path is
+    in the file, avoids every box and label, and no two arrows run on top of each other."""
+    import copy as cp
+    m = cp.deepcopy(SWIM)
+    m["question"] = "Ai làm gì"
+    for n, icon in zip(m["nodes"], ["active_directory/user.svg", "active_directory/database.svg",
+                                    "active_directory/pda.svg", "active_directory/database.svg", "active_directory/printer.svg"]):
+        n["icon"], n["w"], n["h"] = icon, 72, 72
+        n["label"] = n["label"] + " (một nhãn khá dài để phải xuống dòng)"
+    m["edges"].append({"source": "s1", "target": "s4", "label": "thêm", "ref": REF})
+    m["edges"].append({"source": "s5", "target": "s1", "label": "quay lại", "ref": REF})
+    from brse.diagram import drawio
+    monkeypatch.setattr(drawio, "icon_names", lambda config: [n["icon"] for n in m["nodes"]])  # no draw.io needed
+    out = drawio.cmd_build(m, tmp_path / "a.drawio")
+    assert out["edges"] == 6
+    import xml.etree.ElementTree as ET
+    routed = [c for c in ET.parse(tmp_path / "a.drawio").iter("mxCell")
+              if c.get("edge") == "1" and "exitX=" in c.get("style", "")]  # a straight arrow needs no points
+    assert len(routed) == 6
+    bad = [f for f in drawio.cmd_lint(tmp_path / "a.drawio")
+           if f["rule"] in ("edge-through-element", "edges-on-top-of-each-other", "overlap")]
+    assert bad == [], bad
+
+
+def test_lint_catches_an_arrow_through_a_label_and_two_arrows_on_one_segment(tmp_path):
+    xml = """<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
+<mxCell id="a" value="A" style="image;verticalLabelPosition=bottom;" vertex="1" parent="1"><mxGeometry x="0" y="0" width="72" height="72" as="geometry"/></mxCell>
+<mxCell id="b" value="B" style="image;verticalLabelPosition=bottom;" vertex="1" parent="1"><mxGeometry x="0" y="300" width="72" height="72" as="geometry"/></mxCell>
+<mxCell id="c" value="C" style="rounded=1;" vertex="1" parent="1"><mxGeometry x="300" y="300" width="72" height="72" as="geometry"/></mxCell>
+<mxCell id="e1" value="x" edge="1" parent="1" source="b" target="a" style="edgeStyle=none;exitX=0.5;exitY=0;entryX=0.5;entryY=1;"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="36" y="200"/></Array></mxGeometry></mxCell>
+<mxCell id="e2" value="y" edge="1" parent="1" source="a" target="c" style="edgeStyle=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="200" y="36"/><mxPoint x="200" y="250"/><mxPoint x="336" y="250"/></Array></mxGeometry></mxCell>
+<mxCell id="e3" value="z" edge="1" parent="1" source="a" target="c" style="edgeStyle=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="200" y="36"/><mxPoint x="200" y="250"/><mxPoint x="336" y="250"/></Array></mxGeometry></mxCell>
+</root></mxGraphModel>"""
+    (tmp_path / "a.drawio").write_text(f"<mxfile><diagram>{xml}</diagram></mxfile>", encoding="utf-8")
+    rules = [f["rule"] for f in _lint(tmp_path)]
+    assert "edge-through-element" in rules and "edges-on-top-of-each-other" in rules
+
+
+def test_order_question_needs_step_numbers_and_shows_them(tmp_path):
+    import copy as cp
+    m = cp.deepcopy(SWIM)
+    del m["edges"][1]["step"]
+    r, _ = build(tmp_path, m)
+    assert r.returncode != 0 and "step" in r.stdout + r.stderr
+    r, _ = build(tmp_path, SWIM)
+    import xml.etree.ElementTree as ET
+    values = {c.get("value") for c in ET.parse(tmp_path / "a.drawio").iter("mxCell") if c.get("edge") == "1"}
+    assert "② 伝票番号" in values and "①" in values
+
+
+def test_bilingual_labels_in_one_order_and_legend_only_for_used_statuses(tmp_path):
+    xml = """<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
+<mxCell id="a" value="入荷予定 (dự kiến nhập hàng)" style="rounded=1;" vertex="1" parent="1"><mxGeometry x="0" y="0" width="160" height="60" as="geometry"/></mxCell>
+<mxCell id="b" value="在庫 (tồn kho)" style="rounded=1;" vertex="1" parent="1"><mxGeometry x="300" y="0" width="160" height="60" as="geometry"/></mxCell>
+<mxCell id="c" value="In nhãn xuất hàng (出荷ラベル)" style="rounded=1;" vertex="1" parent="1"><mxGeometry x="600" y="0" width="160" height="60" as="geometry"/></mxCell>
+<mxCell id="l" value="要確認 / to confirm" style="rounded=1;dashed=1;brseKind=legend;" vertex="1" parent="1"><mxGeometry x="0" y="200" width="160" height="40" as="geometry"/></mxCell>
+<mxCell id="e1" edge="1" parent="1" source="a" target="b"><mxGeometry relative="1" as="geometry"/></mxCell>
+<mxCell id="e2" edge="1" parent="1" source="b" target="c"><mxGeometry relative="1" as="geometry"/></mxCell>
+</root></mxGraphModel>"""
+    (tmp_path / "a.drawio").write_text(f"<mxfile><diagram>{xml}</diagram></mxfile>", encoding="utf-8")
+    f = _lint(tmp_path)
+    assert [x["id"] for x in f if x["rule"] == "mixed-language-label"] == ["c"]  # the minority order only
+    assert [x["id"] for x in f if x["rule"] == "unused-legend"] == ["l"]
