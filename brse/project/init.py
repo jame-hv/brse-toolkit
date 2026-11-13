@@ -12,7 +12,7 @@ Inferred (each flag overrides):
   deliverables     folders named deliver / 納品 / 提出 / 送付 (what was sent to the client)
   client language  ja when the documents' names contain Japanese, en when they are plain ASCII, else the default
 Creates .brse/ (config.json with only what differs from the defaults, memory/long files holding only their
-schema, memory/short, knowledge, registers, work, .gitignore), the brse-toolkit block of CLAUDE.md (the
+schema, memory/short, knowledge, registers, .gitignore), the brse-toolkit block of CLAUDE.md (the
 user's own text outside the markers is kept) and a git repository when there is none.
 An existing workspace is left alone unless --force (memory, knowledge and registers are never touched).
 Prints {"created", "inferred": {what: {"value", "from"}}, "workspace"}.
@@ -124,7 +124,7 @@ def init(root: Path, opts: dict) -> dict:
     reply = pick("reply_language", "--reply-language", defaults["project"]["reply_language"], "default")
 
     brse = root / ".brse"
-    for d in ("memory/long", "memory/short", "knowledge/docs", "registers", "work"):
+    for d in ("memory/long", "memory/short", "knowledge/docs", "registers"):
         (brse / d).mkdir(parents=True, exist_ok=True)
     cfg = {"layout_version": 2, "project": {"name": name, "client_language": client},
            "paths": {"sources": sources, "templates": templates,

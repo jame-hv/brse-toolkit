@@ -20,7 +20,7 @@ def base():
     (W / "documents").mkdir()
     cfg = {"layout_version": 2,
            "project": {"name": "demo-order", "client_language": "ja", "team_language": "vi"},
-           "paths": {"sources": ["documents/"], "outputs": ".brse/work/"}}
+           "paths": {"sources": ["documents/"], "outputs": "output/"}}
     (W / ".brse/config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     (W / ".brse/config.local.json").write_text('{"project": {"reply_language": "vi"}}', encoding="utf-8")
     for name, title in [("parties", "Parties"), ("glossary", "Glossary EN-VI-JP"), ("conventions", "Conventions"),

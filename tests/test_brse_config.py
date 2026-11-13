@@ -120,3 +120,6 @@ def test_outputs_inside_the_hidden_folder_fall_back_to_the_visible_default(tmp_p
     (tmp_path / ".brse" / "config.json").write_text(j.dumps({"paths": {"outputs": ".brse/work/"}}))
     out = c.resolve(tmp_path)
     assert out["config"]["paths"]["outputs"] == "output/" and "hidden" in out["warnings"][-1]
+    for hidden, kept in [(".outputs/", "output/"), ("./result/", "./result/")]:
+        (tmp_path / ".brse" / "config.json").write_text(j.dumps({"paths": {"outputs": hidden}}))
+        assert c.resolve(tmp_path)["config"]["paths"]["outputs"] == kept

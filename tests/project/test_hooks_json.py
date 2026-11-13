@@ -46,7 +46,7 @@ def test_stop_hook_blocks_while_a_translation_is_unchecked(ws, tmp_path):
                                       "message": {"role": "user", "content": "dịch file a.xlsx"}}) + "\n",
                           encoding="utf-8")
     (ws / "tr.json").write_text(json.dumps({"Sheet!A1": "Hạng mục"}, ensure_ascii=False), encoding="utf-8")
-    out = ws / ".brse" / "work" / "a_vi.xlsx"
+    out = ws / "output" / "a_vi.xlsx"
     from brse_testkit import run_cli
     assert run_cli("office-text", "apply", ws / "src-docs" / "a.xlsx", ws / "tr.json", out, ws, cwd=ws).returncode == 0
     stop = {"session_id": "s1", "transcript_path": str(transcript), "cwd": str(ws)}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.4 — 2026-11-13
+
+### Fixed
+- Any hidden output folder (a name starting with ".", such as `.outputs/`) falls back to `output/`.
+- `init` no longer creates `.brse/work/`; the eval fixture and tests write results to `output/`.
+
 ## 3.0.3 — 2026-11-13
 
 ### Fixed
