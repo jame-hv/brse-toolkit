@@ -1,6 +1,6 @@
 ---
 name: diagram
-description: Use this when the user needs a system architecture, AWS/cloud, network, ERP/business process, flow, swimlane, timeline or screen-transition diagram that a client can read — built from a draw.io template, filled from the sources, checked by lint and by looking at the rendered image.
+description: Use this when the user needs a system architecture, AWS/cloud, network, ERP/business process, flow, swimlane, timeline or screen-transition diagram that a client can read — built from a draw.io template, filled from the sources, checked by lint and by looking at the rendered image. Also the interactive 3D page (Three.js) of a site, warehouse or production line: goods moving between machines, people and terminals placed from the layout drawing, the change spot marked — whenever the user asks to see a site, a flow or a diagram in 3D.
 ---
 
 ## Before running
@@ -52,8 +52,8 @@ from the closest one, or from an existing diagram in the project's sources.
    | Phases over time (preparation, cutover, operation) | timeline (`timeline`) |
    | Which screen leads to which | screen transitions (`screens`) |
    | Where servers, network, cloud parts are | infrastructure, from a draw.io template (`infrastructure`) |
-   | How a real site, line or machine works, for someone who has never been there | a crafted model of the real equipment: `brse-toolkit:anatomy` |
-   | A flow people should walk through and turn around in 3D | build the diagram, add `"scenes"`, then `brse.py drawio-tool scene3d` (below) |
+   | A site, warehouse or line in 3D: which machines the goods pass, where people and terminals stand, where the change happens | build the diagram, add `"scenes"`, then `brse.py drawio-tool scene3d` (below) |
+   | What is inside ONE machine or device, part by part (close-up, not the whole site) | `brse-toolkit:anatomy` |
    | What changes | the SAME diagram as the current state, with changes marked — never a new layout |
 
    Two questions → two diagrams. A sample from the user or the client

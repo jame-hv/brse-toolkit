@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.5 — 2026-11-13
+
+### Fixed
+- The 3D page was never picked: the `diagram` description did not mention 3D, while `anatomy` claimed every
+  explanatory figure. Now a site, warehouse, line or flow in 3D goes to `diagram` (`drawio-tool scene3d`);
+  `anatomy` only draws one machine or device close up. The routing table no longer lists both for a site.
+
 ## 3.0.4 — 2026-11-13
 
 ### Fixed
