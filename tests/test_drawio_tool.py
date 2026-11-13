@@ -337,3 +337,15 @@ def test_swimlane_lane_fits_nodes_with_their_own_size(tmp_path):
     assert run_script("drawio-tool.py", "build", tmp_path / "m.json", tmp_path / "o.drawio", tmp=tmp_path, cwd=tmp_path).returncode == 0
     findings = json.loads(run_script("drawio-tool.py", "lint", tmp_path / "o.drawio", tmp=tmp_path, cwd=tmp_path).stdout)["findings"]
     assert [f for f in findings if f["rule"] == "overlap"] == []
+
+
+def test_every_label_and_line_has_an_explicit_dark_color(tmp_path):
+    """draw.io's dark theme turns default colors light; on the white page labels and arrows would vanish."""
+    import xml.etree.ElementTree as ET
+    r, _ = build(tmp_path, SWIM)
+    assert r.returncode == 0
+    for c in ET.parse(tmp_path / "a.drawio").iter("mxCell"):
+        if c.get("value") or c.get("edge") == "1":
+            assert "fontColor=" in c.get("style", ""), c.get("id")
+        if c.get("edge") == "1":
+            assert "strokeColor=" in c.get("style", ""), c.get("id")

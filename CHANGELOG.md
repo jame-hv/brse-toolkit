@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.1 — 2026-11-13
+
+### Fixed
+- Diagrams built by `drawio-tool build` showed no labels and no arrows in draw.io's dark theme: text and
+  lines used default colors, which the dark theme turns light, on a page forced white. Every label and
+  line now has an explicit dark color.
+
 ## 3.1.0 — 2026-11-13
 
 ### Added

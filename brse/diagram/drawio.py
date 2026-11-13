@@ -594,6 +594,7 @@ def cmd_build(model: dict, out):
         for k, st in enumerate(s for s in STATUS if s in used_status):
             add_vertex({"id": f"brse-legend-{st}", "label": STATUS[st][2]},
                        SEMANTIC["step"][0] + STATUS[st][0] + "brseKind=legend;", 220 + k * 190, ly - 6, 170, 36)
+    pin_colors(mx)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(ET.tostring(mx, encoding="unicode"), encoding="utf-8")
     if layout == "auto":
@@ -604,6 +605,20 @@ def cmd_build(model: dict, out):
     return {"file": str(out), "layout": layout, "nodes": len(seen), "edges": len(model.get("edges", [])),
             "statuses": sorted(used_status), "unsourced": unsourced,
             "sources_table": str(out) + ".sources.md", "claims": str(out) + ".claims.json"}
+
+
+def pin_colors(mx) -> None:
+    """Every text and line gets an explicit dark color. The page is white, but draw.io's dark theme turns
+    *default* text and line colors light — labels and arrows then vanish on the white page."""
+    for c in mx.iter("mxCell"):
+        style = c.get("style")
+        if style is None or not (c.get("value") or c.get("edge") == "1"):
+            continue
+        if "fontColor=" not in style:
+            style += ";fontColor=#1A1A1A;" if style and not style.endswith(";") else "fontColor=#1A1A1A;"
+        if c.get("edge") == "1" and "strokeColor=" not in style:
+            style += "strokeColor=#333333;"
+        c.set("style", style)
 
 
 def effective_status(item: dict, unsourced: list):
