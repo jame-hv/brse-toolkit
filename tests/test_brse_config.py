@@ -111,3 +111,12 @@ def test_shared_config_still_refuses_keys(tmp_path):
     write(proj / ".brse" / "config.json", {"secrets": {"OPENAI_API_KEY": "sk-x"}})
     out, code = run(proj, tmp_path / "home")
     assert code == 1 and "sk-x" not in out["error"]
+
+
+def test_outputs_inside_the_hidden_folder_fall_back_to_the_visible_default(tmp_path):
+    import json as j
+    from brse import config as c
+    (tmp_path / ".brse").mkdir()
+    (tmp_path / ".brse" / "config.json").write_text(j.dumps({"paths": {"outputs": ".brse/work/"}}))
+    out = c.resolve(tmp_path)
+    assert out["config"]["paths"]["outputs"] == "output/" and "hidden" in out["warnings"][-1]

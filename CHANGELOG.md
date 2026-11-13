@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.3 — 2026-11-13
+
+### Fixed
+- Results were written into the hidden `.brse/work/` folder (older init versions set `paths.outputs` there),
+  so the user could not find them. An output folder inside `.brse` is now replaced by the visible default
+  (`output/`) with a warning to fix the config.
+
 ## 3.0.2 — 2026-11-13
 
 ### Fixed

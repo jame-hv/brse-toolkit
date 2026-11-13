@@ -79,6 +79,13 @@ def resolve(start: Path) -> dict:
                              "— đặt key vào biến môi trường, config chỉ ghi tên biến (*_env)")
         config = data if i == 0 else merge(config, data, "", warnings)
         loaded.append(str(path))
+    out_dir = str(config.get("paths", {}).get("outputs") or "")
+    if Path(out_dir).parts[:1] == (".brse",):
+        # results the user must open never go into the hidden .brse folder (older init versions wrote that)
+        default = json.loads(DEFAULTS.read_text(encoding="utf-8"))["paths"]["outputs"]
+        config["paths"]["outputs"] = default
+        warnings.append(f"paths.outputs '{out_dir}' is inside the hidden .brse folder — using '{default}' instead; "
+                        "fix it in .brse/config.json")
     return {"config": config, "loaded": loaded,
             "workspace_root": str(root) if root else None, "warnings": warnings}
 
