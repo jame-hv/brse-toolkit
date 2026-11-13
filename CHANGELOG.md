@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.0 — 2026-11-13
+
+### Added
+- **Output folder management.** Every session in a workspace is told at start: deliverables go to the output
+  folder only, named `<name>_v<N.N>.<ext>`; a change is the next version made from the latest one (the old
+  file is the backup — no `_bak` / `_修正版` copies); intermediate files go to `.brse/work/`.
+  `brse.py outputs` lists deliverables with their versions and the clutter (backup copies, scripts, JSON
+  models, screenshots, words after the version); `brse.py outputs tidy` moves the clutter to
+  `.brse/work/old/<date>/` — never deletes.
+
 ## 3.0.5 — 2026-11-13
 
 ### Fixed

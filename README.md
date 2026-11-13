@@ -127,7 +127,7 @@ root manually — the paths are otherwise identical.
     brse/knowledge/        kb-ingest, kb-search, doc2md
     brse/translate/        mt, lang-lint, check-glossary, check-consistency
     brse/review/           ask-agent, judge, wording, verify-claims, lint-hedge-words
-    brse/project/          register, memory hooks, feedback-stats, library, set-key, doctor
+    brse/project/          register, memory hooks, feedback-stats, library, set-key, doctor, outputs
     brse/diagram/          drawio-tool
     brse/code/             extract-refs, diff-structured, ocr-pass
     tests/                 every test; tests/test_plugin_structure.py fails if a document names

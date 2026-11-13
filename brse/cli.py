@@ -32,6 +32,7 @@ COMMANDS = {
     "register": "brse.project.register:main",
     "feedback-stats": "brse.project.feedback:main",
     "library": "brse.project.library:main",
+    "outputs": "brse.project.outputs:main",
     "set-key": "brse.project.keys:main",
     "doctor": "brse.project.doctor:main",
     "mt": "brse.translate.mt:main",

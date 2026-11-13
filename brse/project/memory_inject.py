@@ -108,6 +108,12 @@ def main() -> None:
     out.append("Settled facts in .brse/memory/long (active entries): "
                + ", ".join(f"{k} {v}" for k, v in counts.items()) + ". Read the relevant file before working.")
     out += sync_sources(root, config)
+    outputs = config.get("paths", {}).get("outputs", "output/")
+    out.append(f"Output files: deliverables go to `{outputs}` only, named `<name>_v<N.N>.<ext>`. A change is the "
+               "next version made from the latest one — the old file stays and is the backup; never make "
+               "`_bak` / `_修正版` / `_new` copies. Intermediate files (scripts, JSON models, extracted text, "
+               "screenshots, previews) go to `.brse/work/`. `brse.py outputs` lists versions and clutter; "
+               "`brse.py outputs tidy` moves the clutter out.")
     conventions = active_entries(mem / "conventions.md")
     if conventions:
         out.append("Project conventions (apply them):\n" + "\n".join(conventions))
