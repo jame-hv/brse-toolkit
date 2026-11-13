@@ -387,55 +387,75 @@ def resolve(root: Path, file: Path, issue: str, how: str, reason) -> dict:
     return {"ok": True, "issue": issue, "status": how}
 
 
-def agent_text(transcript: Path) -> str:
-    """Everything the agent wrote into tool calls this session: Write / Edit paths and content, Bash commands."""
-    out = []
-    for line in transcript.open(encoding="utf-8", errors="ignore") if transcript.is_file() else []:
-        try:
-            d = json.loads(line)
-        except ValueError:
-            continue
-        c = (d.get("message") or {}).get("content") if d.get("type") == "assistant" else None
-        for b in c if isinstance(c, list) else []:
-            if isinstance(b, dict) and b.get("type") == "tool_use":
-                inp = b.get("input") or {}
-                out += [str(inp.get(k, "")) for k in ("file_path", "notebook_path", "content", "new_string", "command")]
-    return "\n".join(out)
+def office_files(root: Path):
+    """Every Office / draw.io file in the workspace, outside .brse, .git and node_modules."""
+    for dirpath, dirs, names in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in (".brse", ".git", "node_modules")]
+        for n in names:
+            if Path(n).suffix.lower() in OFFICE and not n.startswith(("~$", ".~lock")):
+                yield Path(dirpath) / n
 
 
-def unstamped(root: Path, since: float, config: dict, transcript: Path) -> list:
-    """Deliverable files changed in this session without a valid stamp: every Office / draw.io file in the
-    workspace modified at or after `since` whose name the agent used in a tool call (written, edited, or named
-    in a command or a script it wrote) — a file the user saved themselves never blocks the turn — except the
-    client's sources and templates and .brse itself."""
-    # ponytail: matches by file name, so a file the agent only read by name and the user then saved still
-    # counts; track per-call writes if that shows up in practice
-    named = agent_text(transcript)
-    if not named:
-        return []
+def _runs(root: Path, kind: str, session: str) -> Path:
+    return root / ".brse" / "runs" / f"{kind}-{session or 'none'}.json"
+
+
+def snapshot(root: Path, session: str) -> None:
+    """Before an agent's Bash call: the modification time of every Office file in the workspace."""
+    # ponytail: walks the workspace on every Bash call; keep a cached list if a huge workspace makes it slow
+    f = _runs(root, "snap", session)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({str(p): p.stat().st_mtime for p in office_files(root)}), encoding="utf-8")
+
+
+def note_written(root: Path, session: str, paths) -> None:
+    f = _runs(root, "written", session)
+    old = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else []
+    new = old + [str(Path(p).resolve()) for p in paths if str(Path(p).resolve()) not in old]
+    if new != old:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(new, ensure_ascii=False), encoding="utf-8")
+
+
+def after_tool(root: Path, session: str, tool: str, inp: dict) -> None:
+    """After an agent's tool call: record the Office files it created or changed (Bash: compared with the
+    snapshot taken just before; Write / Edit: the file it names)."""
+    if tool == "Bash":
+        f = _runs(root, "snap", session)
+        if not f.is_file():
+            return
+        before = json.loads(f.read_text(encoding="utf-8"))
+        f.unlink()
+        note_written(root, session, [p for p in office_files(root) if before.get(str(p)) != p.stat().st_mtime])
+    else:
+        p = inp.get("file_path") or inp.get("notebook_path") or ""
+        if Path(p).suffix.lower() in OFFICE:
+            note_written(root, session, [p])
+
+
+def unstamped(root: Path, config: dict, session: str) -> list:
+    """Deliverable files the agent created or changed in this session (see after_tool) that have no valid
+    stamp. A file the user saved, copied or moved themselves, or one the agent only read, never blocks the
+    turn. The client's sources and templates, and untouched copies of them, are skipped."""
+    f = _runs(root, "written", session)
+    files = [Path(p) for p in json.loads(f.read_text(encoding="utf-8"))] if f.is_file() else []
     skip = [(root / p).resolve() for p in config.get("paths", {}).get("sources", []) +
             config.get("paths", {}).get("templates", [])]
     pristine = None
     out = []
-    for dirpath, dirs, names in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in (".brse", ".git", "node_modules")]
-        for n in names:
-            p = Path(dirpath) / n
-            if p.suffix.lower() not in OFFICE or n.startswith(("~$", ".~lock")) or n not in named:
-                continue
-            rp = p.resolve()
-            if any(rp.is_relative_to(s) for s in skip) or not p.is_file() or p.stat().st_mtime < since:
-                continue
-            h = sha(p)
-            if pristine is None:
-                # an untouched copy of a template or source document has nothing to review (a template copied
-                # to the output folder before the approval step would otherwise block the turn)
-                pristine = {sha(f) for s in skip if s.is_dir() for f in s.rglob("*")
-                            if f.is_file() and f.suffix.lower() in OFFICE}
-            if h in pristine:
-                continue
-            if load_state(root, p).get("stamp") != h and not in_flight(root, p):
-                out.append(str(p.relative_to(root)))
+    for p in files:
+        if not p.is_file() or any(p.is_relative_to(s) for s in skip):
+            continue
+        h = sha(p)
+        if pristine is None:
+            # an untouched copy of a template or source document has nothing to review (a template copied
+            # to the output folder before the approval step would otherwise block the turn)
+            pristine = {sha(t) for s in skip if s.is_dir() for t in s.rglob("*")
+                        if t.is_file() and t.suffix.lower() in OFFICE}
+        if h in pristine:
+            continue
+        if load_state(root, p).get("stamp") != h and not in_flight(root, p):
+            out.append(str(p.relative_to(root.resolve())) if p.is_relative_to(root.resolve()) else str(p))
     return sorted(out)
 
 

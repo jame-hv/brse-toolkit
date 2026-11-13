@@ -46,6 +46,14 @@ def answer(ws, tmp_path, next_text, issues):
     run_cli("hook", "agent-done", stdin=json.dumps(hook), tmp=tmp_path)
 
 
+def by_agent(ws, tmp_path, change, tool="Bash"):
+    """Run `change` as if inside one of the agent's tool calls (the hooks around it see it)."""
+    hook = {"cwd": str(ws), "session_id": "s1", "tool_name": tool, "tool_input": {"command": "python3 make.py"}}
+    run_cli("hook", "guard", stdin=json.dumps(hook), tmp=tmp_path)
+    change()
+    run_cli("hook", "tool-done", stdin=json.dumps(hook), tmp=tmp_path)
+
+
 def stop(ws, t, tmp_path):
     r = run_cli("hook", "stop", stdin=json.dumps({"cwd": str(ws), "session_id": "s1", "transcript_path": str(t)}),
                 tmp=tmp_path)
@@ -86,11 +94,12 @@ def test_gate_reviews_the_file_needs_answers_and_stamps(ws, tmp_path):
 
     # editing after the stamp voids it, and the Stop hook refuses
     time.sleep(0.01)
-    book(f, "Đổi màn quay về của màn A thành màn C")
-    for _ in range(3):
-        assert stop(ws, t, tmp_path)["decision"] == "block"
-    last = stop(ws, t, tmp_path)
-    assert "decision" not in last and "WITHOUT passing" in last["systemMessage"]
+    by_agent(ws, tmp_path, lambda: book(f, "Đổi màn quay về của màn A thành màn C"))
+    assert stop(ws, t, tmp_path)["decision"] == "block"
+    assert stop(ws, t, tmp_path) is None  # once per version: the next turns are not held
+    time.sleep(0.01)
+    by_agent(ws, tmp_path, lambda: book(f, "Đổi màn quay về của màn A thành màn D"))
+    assert stop(ws, t, tmp_path)["decision"] == "block"  # a new version is shown once again
 
 
 def test_rejecting_needs_a_reason_and_is_shown(ws, tmp_path):
@@ -281,9 +290,9 @@ def test_an_untouched_template_copy_does_not_block(ws, tmp_path):
     cfg = json.loads((ws / ".brse" / "config.json").read_text())
     cfg["paths"]["templates"] = ["templates/"]
     (ws / ".brse" / "config.json").write_text(json.dumps(cfg))
-    shutil.copy(ws / "templates" / "tpl.xlsx", ws / "output" / "est.xlsx")
+    by_agent(ws, tmp_path, lambda: shutil.copy(ws / "templates" / "tpl.xlsx", ws / "output" / "est.xlsx"))
     assert stop(ws, t, tmp_path) is None
-    book(ws / "output" / "est.xlsx", "Đổi màn quay về của màn A thành màn B")
+    by_agent(ws, tmp_path, lambda: book(ws / "output" / "est.xlsx", "Đổi màn quay về của màn A thành màn B"))
     assert stop(ws, t, tmp_path)["decision"] == "block"
 
 
@@ -298,12 +307,15 @@ def test_stop_ignores_translated_copies_outside_the_project(ws, tmp_path):
     assert stop(ws, t, tmp_path) is None
 
 
-def test_a_file_the_user_saved_themselves_does_not_block(ws, tmp_path):
+def test_only_files_the_agent_changed_block(ws, tmp_path):
+    """A file the user saved, copied or moved in, and that the agent only read, never blocks the turn."""
     t = setup(ws, tmp_path)
-    book(ws / "output" / "my-notes.xlsx")  # the agent never named it
+    (ws / "estimation").mkdir()
+    book(ws / "estimation" / "est.xlsx")  # the user moved it in during the session
+    by_agent(ws, tmp_path, lambda: (ws / "estimation" / "est.xlsx").read_bytes())  # the agent reads it
     assert stop(ws, t, tmp_path) is None
-    book(ws / "output" / "est.xlsx")  # the agent made this one
-    assert stop(ws, t, tmp_path)["decision"] == "block"
+    by_agent(ws, tmp_path, lambda: book(ws / "output" / "new.xlsx"))  # the agent writes a new file
+    assert stop(ws, t, tmp_path)["reason"].count("output/new.xlsx") == 1
 
 
 def test_reviewer_run_in_the_background_is_read_once_it_has_finished(ws, tmp_path):

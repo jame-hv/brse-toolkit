@@ -53,10 +53,7 @@ def test_stop_hook_blocks_while_a_translation_is_unchecked(ws, tmp_path):
     blocked = run("Stop", stop, ws)
     assert blocked.returncode == 0 and json.loads(blocked.stdout)["decision"] == "block"
     assert "a_vi.xlsx" in json.loads(blocked.stdout)["reason"]
-    for _ in range(2):  # blocks 3 times in a row, then lets the turn end but tells the user
-        assert json.loads(run("Stop", {**stop, "stop_hook_active": True}, ws).stdout)["decision"] == "block"
-    told = json.loads(run("Stop", {**stop, "stop_hook_active": True}, ws).stdout)
-    assert "decision" not in told and "a_vi.xlsx" in told["systemMessage"]
+    assert run("Stop", {**stop, "stop_hook_active": True}, ws).stdout.strip() == ""  # shown once per version
     assert run_cli("translation-check", ws / "src-docs" / "a.xlsx", ws / "tr.json", out, "--lang", "vi",
                    cwd=ws).returncode == 0
     assert run("Stop", stop, ws).stdout.strip() == ""

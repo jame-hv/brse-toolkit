@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.2 — 2026-11-13
+
+### Fixed
+- **The Stop hook decided "changed in this session" by file time, so it blocked on files the user moved,
+  copied or saved, and on files the agent only read.** It now records the Office files changed *during the
+  agent's own tool calls* (modification times taken just before and after each Bash call; the file named
+  by Write / Edit). A person editing a file never triggers it.
+- **The Stop hook held every turn hostage** (3 refusals per turn, on every turn, even when the user asked
+  about something else). It now refuses once per version of a file, then stays quiet.
+
 ## 3.0.1 — 2026-11-12
 
 ### Fixed
